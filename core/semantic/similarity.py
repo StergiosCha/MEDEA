@@ -1,18 +1,32 @@
 """
-MEDEA-NEUMOUSA: Semantic Similarity Analysis
+MEDEA-NEUMOUSA: Semantic Similarity Analysis - NECROMANCER PATTERN
 Find hidden connections between ancient texts
 """
 import asyncio
 import logging
+import json
+import os
 from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.cluster import AgglomerativeClustering
+from typing import Any, Dict
 
-from services.llm_service import llm_service
+import google.generativeai as genai
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logger = logging.getLogger("MEDEA.Semantic")
+
+# Configure Gemini - SAME AS NECROMANCER
+GEMINI_API_KEY = os.getenv("MEDEA_GEMINI_API_KEY")
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
+    model = genai.GenerativeModel('gemini-2.0-flash-exp')
+else:
+    model = None
 
 @dataclass
 class TextSimilarity:
@@ -32,15 +46,38 @@ class ClusterResult:
     outliers: List[str]
     cluster_summaries: Dict[int, str]
 
+def parse_llm_json_response(response_text: str) -> dict:
+    """Parse JSON from LLM response with error handling - SAME AS NECROMANCER"""
+    if not response_text:
+        raise ValueError("Empty response")
+    
+    # Check for HTML error responses
+    if response_text.strip().startswith('<!DOCTYPE') or '<html' in response_text:
+        raise ValueError("LLM returned HTML error page")
+    
+    # Clean markdown formatting
+    cleaned = response_text.strip()
+    if cleaned.startswith('```json'):
+        cleaned = cleaned[7:]
+    if cleaned.endswith('```'):
+        cleaned = cleaned[:-3]
+    cleaned = cleaned.strip()
+    
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON parsing failed. Response: {response_text[:200]}...")
+        raise ValueError(f"Invalid JSON: {str(e)}")
+
 class SemanticAnalyzer:
     """
     Analyze semantic relationships between ancient texts
-    Using centralized LLM service with fallbacks
+    Using SAME pattern as necromancer
     """
     
     def __init__(self):
-        # Uses shared LLM service
-        pass
+        # Check if model is available - same as necromancer
+        self.model_available = model is not None
         
     async def analyze_similarity(
         self, 
@@ -50,6 +87,17 @@ class SemanticAnalyzer:
         language2: str = "lat"
     ) -> TextSimilarity:
         """Analyze semantic similarity between two ancient texts"""
+        
+        if not model:
+            logger.error("Gemini API key not configured for semantic analysis")
+            return TextSimilarity(
+                text1=text1,
+                text2=text2,
+                similarity_score=0.0,
+                semantic_connections=["Gemini API key not configured"],
+                shared_themes=["Configuration error"],
+                linguistic_relationship="configuration_error"
+            )
         
         prompt = f"""You are a classical scholar. Compare these ancient texts and return ONLY valid JSON.
 
@@ -71,7 +119,17 @@ Valid linguistic_relationship values: direct_quotation, allusion, parallel_tradi
 Only return the JSON object, nothing else."""
 
         try:
-            result = await llm_service.generate_json(prompt)
+            # EXACT SAME PATTERN AS NECROMANCER
+            response = await model.generate_content_async(
+                prompt,
+                generation_config=genai.types.GenerationConfig(
+                    temperature=0.3,
+                    max_output_tokens=1000
+                )
+            )
+            
+            # Parse JSON with error handling
+            result = parse_llm_json_response(response.text)
             
             return TextSimilarity(
                 text1=text1,
@@ -116,6 +174,9 @@ Only return the JSON object, nothing else."""
                 )
                 
                 results.append((i, j, similarity))
+                
+                # Add small delay to avoid rate limiting
+                await asyncio.sleep(0.5)
         
         return results
     
@@ -159,7 +220,7 @@ Only return the JSON object, nothing else."""
                 clusters[label] = []
             clusters[label].append(texts[idx]["text"])
         
-        # Generate cluster themes using shared LLM service
+        # Generate cluster themes using SAME PATTERN AS NECROMANCER
         cluster_themes = {}
         cluster_summaries = {}
         
@@ -176,7 +237,19 @@ Return exactly this JSON format:
 }}"""
             
             try:
-                theme_data = await llm_service.generate_json(theme_prompt)
+                if not model:
+                    raise Exception("Gemini API not configured")
+                
+                # EXACT SAME PATTERN AS NECROMANCER
+                response = await model.generate_content_async(
+                    theme_prompt,
+                    generation_config=genai.types.GenerationConfig(
+                        temperature=0.3,
+                        max_output_tokens=800
+                    )
+                )
+                
+                theme_data = parse_llm_json_response(response.text)
                 cluster_themes[cluster_id] = theme_data.get("main_theme", f"Cluster {cluster_id}")
                 cluster_summaries[cluster_id] = theme_data.get("detailed_summary", "No summary available")
                 
@@ -216,8 +289,19 @@ Return exactly this JSON format:
             
             if similarity.similarity_score >= threshold:
                 echoes.append((corpus_text, similarity))
+            
+            # Add small delay to avoid rate limiting
+            await asyncio.sleep(0.3)
         
         # Sort by similarity score
         echoes.sort(key=lambda x: x[1].similarity_score, reverse=True)
         
         return echoes
+        
+    def get_status(self) -> Dict[str, Any]:
+        """Get semantic analyzer status - SAME PATTERN AS NECROMANCER"""
+        return {
+            "api_configured": GEMINI_API_KEY is not None,
+            "model_ready": model is not None,
+            "message": "Semantic Oracle ready" if model else "Gemini API key not configured"
+        }
