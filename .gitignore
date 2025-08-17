@@ -1,0 +1,185 @@
+# MEDEA-NEUMOUSA .gitignore
+# "ἡ Μήδεια κρύπτει τὰ μυστήρια"
+
+# Environment & Secrets
+.env
+.env.local
+.env.production
+.env.staging
+*.env
+
+# API Keys & Secrets
+*_API_KEY*
+*api_key*
+*secret*
+*token*
+config/secrets/
+secrets/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+medea_env/
+
+# FastAPI / Web Framework
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+database/
+db/
+data/
+backups/
+
+# Logs
+*.log
+logs/
+log/
+necromancer.log
+medea.log
+
+# IDE & Editor Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Frontend Build Files (if you have any)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn-integrity
+dist/
+build/
+
+# Static Files (generated)
+static/generated/
+media/uploads/
+staticfiles/
+
+# Temporary Files
+tmp/
+temp/
+.tmp/
+*.tmp
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Cloud & Deployment
+.aws/
+.gcp/
+.azure/
+docker-compose.override.yml
+.dockerignore
+kubernetes/secrets/
+
+# MEDEA-Specific
+# Ancient language corpus files (if large)
+corpus/
+language_data/
+training_data/
+
+# LLM model cache
+models/
+.cache/
+model_cache/
+
+# Translation history/cache
+translations_cache/
+necromancy_results/
+
+# Configuration overrides
+config/local.py
+config/production.py
+local_settings.py
+
+# Test artifacts
+.pytest_cache/
+test_results/
+coverage/
+
+# Jupyter Notebooks (if any)
+.ipynb_checkpoints/
+*.ipynb
+
+# Package managers
+Pipfile.lock
+poetry.lock
+requirements-local.txt
+
+# Profiling
+.prof
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Backup files
+*.bak
+*.backup
+*.old
+*.orig
+
+# MEDEA Ancient Scripts (if sensitive)
+# ancient_texts/private/
+# scholarly_notes/personal/
