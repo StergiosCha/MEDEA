@@ -1,5 +1,5 @@
 """
-MEDEA-NEUMOUSA: Semantic Analysis API
+MEDEA-NEUMOUSA: Semantic Analysis API - FIXED VERSION
 Discover hidden connections in ancient texts
 """
 from fastapi import APIRouter, HTTPException
@@ -39,7 +39,10 @@ class EchoRequest(BaseModel):
 @router.get("/")
 async def semantic_status():
     """Get semantic analysis module status"""
-    llm_status = llm_service.get_status()
+    try:
+        status = semantic_analyzer.get_status()
+    except:
+        status = {"api_configured": False, "status": "error"}
     
     return {
         "status": "Semantic Oracle ready to find hidden connections",
@@ -49,7 +52,7 @@ async def semantic_status():
             "Textual echo detection",
             "Thematic analysis"
         ],
-        "llm_service": llm_status
+        "llm_service": status
     }
 
 @router.post("/similarity")
@@ -60,7 +63,9 @@ async def analyze_similarity(request: SimilarityRequest):
     Discovers shared themes, concepts, and linguistic relationships
     """
     try:
-        if not llm_service.get_status()["api_configured"]:
+        # Check if semantic analyzer is configured
+        status = semantic_analyzer.get_status()
+        if not status.get("api_configured", False):
             raise HTTPException(status_code=500, detail="Semantic oracle needs Gemini API key")
         
         result = await semantic_analyzer.analyze_similarity(
@@ -99,8 +104,8 @@ async def cluster_texts(request: ClusterRequest):
     Groups texts with similar themes and analyzes cluster characteristics
     """
     try:
-        if not semantic_analyzer.models:
-            raise HTTPException(status_code=500, detail="Semantic oracle needs Gemini API key")
+        # REMOVED BROKEN CHECK: if not semantic_analyzer.models:
+        # SemanticAnalyzer doesn't have a 'models' attribute!
         
         # Convert to internal format
         texts = [
@@ -150,8 +155,8 @@ async def find_echoes(request: EchoRequest):
     Discovers texts that resonate with the query text above a similarity threshold
     """
     try:
-        if not semantic_analyzer.models:
-            raise HTTPException(status_code=500, detail="Semantic oracle needs Gemini API key")
+        # REMOVED BROKEN CHECK: if not semantic_analyzer.models:
+        # SemanticAnalyzer doesn't have a 'models' attribute!
         
         # Convert to internal format
         corpus_texts = [
