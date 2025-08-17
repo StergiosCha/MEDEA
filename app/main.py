@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from api.v1 import necromancer, semantic
 
-app = FastAPI(title="MEDEA-NEUMOUSA", description="The Talos Destroyer")
+app = FastAPI(title="MEDEA-NEUMOUSA", description="The Robot Destroyer")
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
