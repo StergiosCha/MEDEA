@@ -1,0 +1,358 @@
+{% extends "base.html" %}
+
+{% block title %}Necromancer - MEDEA-NEUMOUSA | Resurrect Ancient Languages{% endblock %}
+
+{% block extra_head %}
+<style>
+    .confidence-bar {
+        width: 100%;
+        height: 8px;
+        background: var(--border-color);
+        border-radius: 4px;
+        overflow: hidden;
+        margin-top: 0.5rem;
+    }
+    
+    .confidence-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--text-accent), var(--accent-gold));
+        transition: width 0.3s ease;
+    }
+    
+    .example-text {
+        background: rgba(212, 175, 55, 0.1);
+        border: 1px solid var(--accent-gold);
+        border-radius: 8px;
+        padding: 0.5rem 1rem;
+        margin: 0.5rem 0;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-style: italic;
+    }
+    
+    .example-text:hover {
+        background: rgba(212, 175, 55, 0.2);
+        transform: translateX(5px);
+    }
+    
+    .alternatives {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--border-color);
+    }
+    
+    .alternative-item {
+        background: rgba(26, 31, 58, 0.5);
+        border-radius: 8px;
+        padding: 0.8rem;
+        margin: 0.5rem 0;
+        border-left: 3px solid var(--accent-bronze);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="translate-container">
+    <div style="text-align: center; margin-bottom: 3rem;">
+        <h1 style="font-size: 3rem; margin-bottom: 1rem;">🔮 The Necromancer</h1>
+        <p style="font-size: 1.3rem; color: var(--text-muted); font-style: italic;">
+            "Ἡ Μήδεια ἀνίστησι τὰς φωνὰς τῶν νεκρῶν"<br>
+            <span style="font-size: 1rem;">"Medea resurrects the voices of the dead"</span>
+        </p>
+    </div>
+
+    <!-- Translation Form -->
+    <form id="translationForm" class="card">
+        <!-- Language Selector -->
+        <div class="language-selector">
+            <div class="form-group">
+                <label class="form-label" for="sourceLanguage">🗣️ Source Language</label>
+                <select id="sourceLanguage" name="source_language" class="form-select" required>
+                    <option value="">Select source language...</option>
+                    <option value="lat">🏛️ Latin</option>
+                    <option value="grc">🏺 Ancient Greek</option>
+                    <option value="he">✡️ Hebrew</option>
+                    <option value="arc">📿 Aramaic</option>
+                    <option value="got">⚔️ Gothic</option>
+                    <option value="non">🛡️ Old Norse</option>
+                    <option value="ang">👑 Old English</option>
+                    <option value="sa">🕉️ Sanskrit</option>
+                    <option value="hit">🏺 Hittite</option>
+                    <option value="cop">✝️ Coptic</option>
+                    <option value="syr">📿 Syriac</option>
+                    <option value="akk">🏺 Akkadian</option>
+                </select>
+            </div>
+            
+            <button type="button" class="swap-btn" id="swapLanguages" title="Swap languages">
+                ⇄
+            </button>
+            
+            <div class="form-group">
+                <label class="form-label" for="targetLanguage">👻 Target Language</label>
+                <select id="targetLanguage" name="target_language" class="form-select" required>
+                    <option value="">Select target language...</option>
+                    <option value="lat">🏛️ Latin</option>
+                    <option value="grc">🏺 Ancient Greek</option>
+                    <option value="he">✡️ Hebrew</option>
+                    <option value="arc">📿 Aramaic</option>
+                    <option value="got">⚔️ Gothic</option>
+                    <option value="non">🛡️ Old Norse</option>
+                    <option value="ang">👑 Old English</option>
+                    <option value="sa">🕉️ Sanskrit</option>
+                    <option value="hit">🏺 Hittite</option>
+                    <option value="cop">✝️ Coptic</option>
+                    <option value="syr">📿 Syriac</option>
+                    <option value="akk">🏺 Akkadian</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Text Input -->
+        <div class="form-group">
+            <label class="form-label" for="inputText">📜 Ancient Text to Resurrect</label>
+            <textarea 
+                id="inputText" 
+                name="text" 
+                class="form-textarea" 
+                placeholder="Enter your ancient text here... 
+
+Examples:
+• Latin: Arma virumque cano, Troiae qui primus ab oris
+• Greek: μῆνιν ἄειδε θεὰ Πηληϊάδεω Ἀχιλῆος
+• Hebrew: בְּרֵאשִׁית בָּרָא אֱלֹהִים
+• Sanskrit: असतो मा सद्गमय"
+                required
+            ></textarea>
+        </div>
+
+        <!-- Example Texts -->
+        <div style="margin-bottom: 2rem;">
+            <label class="form-label">💡 Try These Examples:</label>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
+                <div class="example-text" data-text="Arma virumque cano, Troiae qui primus ab oris" data-source="lat">
+                    <strong>Virgil (Latin):</strong> "Arma virumque cano..."
+                </div>
+                <div class="example-text" data-text="μῆνιν ἄειδε θεὰ Πηληϊάδεω Ἀχιλῆος" data-source="grc">
+                    <strong>Homer (Greek):</strong> "μῆνιν ἄειδε θεὰ..."
+                </div>
+                <div class="example-text" data-text="בְּרֵאשִׁית בָּרָא אֱלֹהִים אֵת הַשָּׁמַיִם" data-source="he">
+                    <strong>Genesis (Hebrew):</strong> "בְּרֵאשִׁית בָּרָא..."
+                </div>
+                <div class="example-text" data-text="असतो मा सद्गमय तमसो मा ज्योतिर्गमय" data-source="sa">
+                    <strong>Upanishads (Sanskrit):</strong> "असतो मा सद्गमय..."
+                </div>
+            </div>
+        </div>
+
+        <!-- Submit Button -->
+        <div style="text-align: center;">
+            <button type="submit" class="btn" id="resurrectBtn">
+                <span id="btnText">🔮 Resurrect Ancient Voices</span>
+                <span id="btnLoading" style="display: none;">
+                    <span class="loading"></span> Channeling spirits...
+                </span>
+            </button>
+        </div>
+    </form>
+
+    <!-- Results Section -->
+    <div id="resultsSection" style="display: none;">
+        <div class="card result-card">
+            <h3 style="text-align: center; margin-bottom: 2rem; color: var(--accent-gold);">
+                ⚡ The Ancient Voices Speak
+            </h3>
+            
+            <!-- Original Text -->
+            <div style="margin-bottom: 2rem;">
+                <h4 style="color: var(--text-muted); margin-bottom: 0.5rem;">📜 Original Text:</h4>
+                <div id="originalText" style="font-size: 1.2rem; font-style: italic; padding: 1rem; background: rgba(26, 31, 58, 0.5); border-radius: 8px; border-left: 4px solid var(--text-accent);"></div>
+            </div>
+            
+            <!-- Resurrected Text -->
+            <div style="margin-bottom: 2rem;">
+                <h4 style="color: var(--accent-gold); margin-bottom: 0.5rem;">👻 Resurrected Text:</h4>
+                <div id="resurrectedText" class="result-text" style="font-size: 1.4rem; padding: 1.5rem; background: linear-gradient(135deg, rgba(212, 175, 55, 0.1), rgba(233, 69, 96, 0.1)); border-radius: 10px; border: 2px solid var(--accent-gold);"></div>
+            </div>
+            
+            <!-- Metadata -->
+            <div class="result-meta">
+                <div class="meta-item">
+                    <div class="meta-label">Source Language</div>
+                    <div class="meta-value" id="metaSource"></div>
+                </div>
+                <div class="meta-item">
+                    <div class="meta-label">Target Language</div>
+                    <div class="meta-value" id="metaTarget"></div>
+                </div>
+                <div class="meta-item">
+                    <div class="meta-label">Confidence</div>
+                    <div class="meta-value" id="metaConfidence"></div>
+                    <div class="confidence-bar">
+                        <div class="confidence-fill" id="confidenceFill"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Spiritual Notes -->
+            <div id="spiritualNotes" style="margin-top: 2rem; padding: 1.5rem; background: rgba(26, 31, 58, 0.3); border-radius: 10px; border-left: 4px solid var(--accent-bronze);">
+                <h4 style="color: var(--accent-bronze); margin-bottom: 1rem;">🔮 Spiritual Notes:</h4>
+                <div id="notesContent"></div>
+            </div>
+            
+            <!-- Alternatives -->
+            <div id="alternativesSection" style="display: none;">
+                <h4 style="color: var(--text-muted); margin: 2rem 0 1rem;">🌟 Alternative Resurrections:</h4>
+                <div id="alternativesList"></div>
+            </div>
+            
+            <!-- Actions -->
+            <div style="text-align: center; margin-top: 2rem;">
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('translationForm').scrollIntoView()">
+                    🔄 Resurrect Another
+                </button>
+                <button type="button" class="btn btn-secondary" id="copyResult" style="margin-left: 1rem;">
+                    📋 Copy Result
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Section -->
+    <div id="errorSection" style="display: none;">
+        <div class="card" style="border-color: var(--text-accent); background: rgba(233, 69, 96, 0.1);">
+            <h3 style="color: var(--text-accent); text-align: center;">💀 The Spirits Are Silent</h3>
+            <p id="errorMessage" style="text-align: center; margin-top: 1rem;"></p>
+            <div style="text-align: center; margin-top: 1rem;">
+                <button type="button" class="btn" onclick="document.getElementById('translationForm').scrollIntoView()">
+                    🔄 Try Again
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('translationForm');
+    const resultsSection = document.getElementById('resultsSection');
+    const errorSection = document.getElementById('errorSection');
+    const resurrectBtn = document.getElementById('resurrectBtn');
+    const btnText = document.getElementById('btnText');
+    const btnLoading = document.getElementById('btnLoading');
+    
+    // Example text handlers
+    document.querySelectorAll('.example-text').forEach(example => {
+        example.addEventListener('click', function() {
+            document.getElementById('inputText').value = this.dataset.text;
+            if (this.dataset.source) {
+                document.getElementById('sourceLanguage').value = this.dataset.source;
+            }
+        });
+    });
+    
+    // Language swap
+    document.getElementById('swapLanguages').addEventListener('click', function() {
+        const source = document.getElementById('sourceLanguage');
+        const target = document.getElementById('targetLanguage');
+        const temp = source.value;
+        source.value = target.value;
+        target.value = temp;
+    });
+    
+    // Form submission
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // Hide previous results/errors
+        resultsSection.style.display = 'none';
+        errorSection.style.display = 'none';
+        
+        // Show loading state
+        btnText.style.display = 'none';
+        btnLoading.style.display = 'inline';
+        resurrectBtn.disabled = true;
+        
+        const formData = new FormData(form);
+        const data = {
+            text: formData.get('text'),
+            source_language: formData.get('source_language'),
+            target_language: formData.get('target_language')
+        };
+        
+        try {
+            const response = await fetch('/api/v1/necromancer/resurrect', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                displayResults(result);
+            } else {
+                displayError(result.detail || 'Unknown error occurred');
+            }
+        } catch (error) {
+            displayError('Failed to connect to the necromancer. Please try again.');
+        } finally {
+            // Reset button state
+            btnText.style.display = 'inline';
+            btnLoading.style.display = 'none';
+            resurrectBtn.disabled = false;
+        }
+    });
+    
+    function displayResults(result) {
+        // Populate result fields
+        document.getElementById('originalText').textContent = result.source_text;
+        document.getElementById('resurrectedText').textContent = result.resurrected_text;
+        document.getElementById('metaSource').textContent = result.source_language;
+        document.getElementById('metaTarget').textContent = result.target_language;
+        document.getElementById('metaConfidence').textContent = Math.round(result.confidence * 100) + '%';
+        document.getElementById('notesContent').textContent = result.spiritual_notes || 'The ancient spirits have spoken.';
+        
+        // Update confidence bar
+        const confidenceFill = document.getElementById('confidenceFill');
+        confidenceFill.style.width = (result.confidence * 100) + '%';
+        
+        // Handle alternatives
+        if (result.alternatives && result.alternatives.length > 0) {
+            const alternativesList = document.getElementById('alternativesList');
+            alternativesList.innerHTML = result.alternatives.map(alt => 
+                `<div class="alternative-item">${alt}</div>`
+            ).join('');
+            document.getElementById('alternativesSection').style.display = 'block';
+        } else {
+            document.getElementById('alternativesSection').style.display = 'none';
+        }
+        
+        // Show results
+        resultsSection.style.display = 'block';
+        resultsSection.scrollIntoView({ behavior: 'smooth' });
+    }
+    
+    function displayError(message) {
+        document.getElementById('errorMessage').textContent = message;
+        errorSection.style.display = 'block';
+        errorSection.scrollIntoView({ behavior: 'smooth' });
+    }
+    
+    // Copy result functionality
+    document.getElementById('copyResult').addEventListener('click', function() {
+        const text = document.getElementById('resurrectedText').textContent;
+        navigator.clipboard.writeText(text).then(() => {
+            this.textContent = '✅ Copied!';
+            setTimeout(() => {
+                this.textContent = '📋 Copy Result';
+            }, 2000);
+        });
+    });
+});
+</script>
+{% endblock %}

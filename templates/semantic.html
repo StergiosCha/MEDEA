@@ -1,0 +1,749 @@
+{% extends "base.html" %}
+
+{% block title %}Semantic Oracle - MEDEA-NEUMOUSA | Discover Hidden Connections{% endblock %}
+
+{% block extra_head %}
+<style>
+    .analysis-tabs {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        border-bottom: 2px solid var(--border-color);
+    }
+    
+    .tab-btn {
+        padding: 1rem 2rem;
+        background: transparent;
+        border: none;
+        color: var(--text-muted);
+        font-family: var(--font-heading);
+        font-size: 1.1rem;
+        cursor: pointer;
+        border-bottom: 3px solid transparent;
+        transition: all 0.3s ease;
+    }
+    
+    .tab-btn.active {
+        color: var(--accent-gold);
+        border-bottom-color: var(--accent-gold);
+    }
+    
+    .tab-btn:hover {
+        color: var(--accent-gold);
+    }
+    
+    .tab-content {
+        display: none;
+    }
+    
+    .tab-content.active {
+        display: block;
+        animation: fadeIn 0.3s ease;
+    }
+    
+    .similarity-visualization {
+        background: linear-gradient(135deg, rgba(212, 175, 55, 0.1), rgba(233, 69, 96, 0.1));
+        border: 2px solid var(--accent-gold);
+        border-radius: 15px;
+        padding: 2rem;
+        margin: 2rem 0;
+        text-align: center;
+    }
+    
+    .similarity-score {
+        font-size: 4rem;
+        font-weight: bold;
+        color: var(--accent-gold);
+        margin-bottom: 1rem;
+    }
+    
+    .connection-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        margin: 1rem 0;
+    }
+    
+    .connection-item {
+        background: rgba(26, 31, 58, 0.5);
+        border-radius: 8px;
+        padding: 1rem;
+        border-left: 4px solid var(--accent-bronze);
+    }
+    
+    .cluster-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 2rem;
+        margin: 2rem 0;
+    }
+    
+    .cluster-card {
+        background: var(--glass-bg);
+        border: 2px solid var(--border-color);
+        border-radius: 15px;
+        padding: 2rem;
+        transition: all 0.3s ease;
+    }
+    
+    .cluster-card:hover {
+        border-color: var(--accent-gold);
+        box-shadow: var(--glow-gold);
+    }
+    
+    .cluster-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .cluster-icon {
+        width: 40px;
+        height: 40px;
+        background: var(--accent-gold);
+        color: var(--primary-dark);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 1.2rem;
+    }
+    
+    .echo-result {
+        background: rgba(26, 31, 58, 0.3);
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        border-left: 4px solid var(--accent-gold);
+    }
+    
+    .echo-score {
+        display: inline-block;
+        background: var(--accent-gold);
+        color: var(--primary-dark);
+        padding: 0.3rem 0.8rem;
+        border-radius: 15px;
+        font-weight: bold;
+        font-size: 0.9rem;
+    }
+    
+    .text-input-group {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+        margin-bottom: 2rem;
+    }
+    
+    @media (max-width: 768px) {
+        .text-input-group {
+            grid-template-columns: 1fr;
+        }
+        
+        .analysis-tabs {
+            flex-direction: column;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="translate-container">
+    <div style="text-align: center; margin-bottom: 3rem;">
+        <h1 style="font-size: 3rem; margin-bottom: 1rem;">🔮 Semantic Oracle</h1>
+        <p style="font-size: 1.3rem; color: var(--text-muted); font-style: italic;">
+            "Σημαντικὰ δίκτυα τῶν ἀρχαίων"<br>
+            <span style="font-size: 1rem;">"Semantic networks of the ancients"</span>
+        </p>
+        <p style="margin-top: 1rem; color: var(--text-muted);">
+            Discover hidden connections, shared themes, and textual echoes in ancient literature
+        </p>
+    </div>
+
+    <!-- Analysis Tabs -->
+    <div class="analysis-tabs">
+        <button class="tab-btn active" data-tab="similarity">🔗 Text Similarity</button>
+        <button class="tab-btn" data-tab="clustering">🕸️ Text Clustering</button>
+        <button class="tab-btn" data-tab="echoes">📡 Textual Echoes</button>
+    </div>
+
+    <!-- Text Similarity Tab -->
+    <div id="similarity-tab" class="tab-content active">
+        <div class="card">
+            <h3 style="margin-bottom: 2rem; color: var(--accent-gold);">🔗 Analyze Similarity Between Two Texts</h3>
+            
+            <form id="similarityForm">
+                <div class="text-input-group">
+                    <div>
+                        <div class="form-group">
+                            <label class="form-label">📜 First Text</label>
+                            <select name="language1" class="form-select" style="margin-bottom: 0.5rem;">
+                                <option value="lat">🏛️ Latin</option>
+                                <option value="grc">🏺 Ancient Greek</option>
+                                <option value="he">✡️ Hebrew</option>
+                                <option value="sa">🕉️ Sanskrit</option>
+                            </select>
+                            <textarea name="text1" class="form-textarea" placeholder="Enter first ancient text..." required></textarea>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <div class="form-group">
+                            <label class="form-label">📜 Second Text</label>
+                            <select name="language2" class="form-select" style="margin-bottom: 0.5rem;">
+                                <option value="lat">🏛️ Latin</option>
+                                <option value="grc">🏺 Ancient Greek</option>
+                                <option value="he">✡️ Hebrew</option>
+                                <option value="sa">🕉️ Sanskrit</option>
+                            </select>
+                            <textarea name="text2" class="form-textarea" placeholder="Enter second ancient text..." required></textarea>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="text-align: center;">
+                    <button type="submit" class="btn">
+                        <span class="btn-text">🔮 Analyze Similarity</span>
+                        <span class="btn-loading" style="display: none;">
+                            <span class="loading"></span> Consulting the oracle...
+                        </span>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Similarity Results -->
+        <div id="similarityResults" style="display: none;"></div>
+    </div>
+
+    <!-- Text Clustering Tab -->
+    <div id="clustering-tab" class="tab-content">
+        <div class="card">
+            <h3 style="margin-bottom: 2rem; color: var(--accent-gold);">🕸️ Cluster Texts by Themes</h3>
+            
+            <form id="clusteringForm">
+                <div class="form-group">
+                    <label class="form-label">📚 Texts to Cluster (2-10 texts)</label>
+                    <div id="textInputs">
+                        <div class="text-cluster-input" style="margin-bottom: 1rem; padding: 1rem; background: rgba(26, 31, 58, 0.3); border-radius: 8px;">
+                            <div style="display: flex; gap: 1rem; margin-bottom: 0.5rem;">
+                                <input type="text" class="form-input" placeholder="Text title (optional)" style="flex: 1;">
+                                <select class="form-select" style="flex: 0 0 150px;">
+                                    <option value="lat">🏛️ Latin</option>
+                                    <option value="grc">🏺 Ancient Greek</option>
+                                    <option value="he">✡️ Hebrew</option>
+                                    <option value="sa">🕉️ Sanskrit</option>
+                                </select>
+                            </div>
+                            <textarea class="form-textarea" placeholder="Enter ancient text..." required style="height: 80px;"></textarea>
+                        </div>
+                        
+                        <div class="text-cluster-input" style="margin-bottom: 1rem; padding: 1rem; background: rgba(26, 31, 58, 0.3); border-radius: 8px;">
+                            <div style="display: flex; gap: 1rem; margin-bottom: 0.5rem;">
+                                <input type="text" class="form-input" placeholder="Text title (optional)" style="flex: 1;">
+                                <select class="form-select" style="flex: 0 0 150px;">
+                                    <option value="lat">🏛️ Latin</option>
+                                    <option value="grc">🏺 Ancient Greek</option>
+                                    <option value="he">✡️ Hebrew</option>
+                                    <option value="sa">🕉️ Sanskrit</option>
+                                </select>
+                            </div>
+                            <textarea class="form-textarea" placeholder="Enter ancient text..." required style="height: 80px;"></textarea>
+                        </div>
+                    </div>
+                    
+                    <div style="text-align: center; margin: 1rem 0;">
+                        <button type="button" id="addTextInput" class="btn btn-secondary">➕ Add Another Text</button>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">🎯 Number of Clusters</label>
+                    <select name="num_clusters" class="form-select">
+                        <option value="2">2 clusters</option>
+                        <option value="3" selected>3 clusters</option>
+                        <option value="4">4 clusters</option>
+                        <option value="5">5 clusters</option>
+                    </select>
+                </div>
+                
+                <div style="text-align: center;">
+                    <button type="submit" class="btn">
+                        <span class="btn-text">🕸️ Cluster Texts</span>
+                        <span class="btn-loading" style="display: none;">
+                            <span class="loading"></span> Analyzing patterns...
+                        </span>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Clustering Results -->
+        <div id="clusteringResults" style="display: none;"></div>
+    </div>
+
+    <!-- Textual Echoes Tab -->
+    <div id="echoes-tab" class="tab-content">
+        <div class="card">
+            <h3 style="margin-bottom: 2rem; color: var(--accent-gold);">📡 Find Textual Echoes</h3>
+            <p style="margin-bottom: 2rem; color: var(--text-muted);">
+                Search for texts that resonate with your query text
+            </p>
+            
+            <form id="echoesForm">
+                <div class="form-group">
+                    <label class="form-label">🎯 Query Text</label>
+                    <textarea name="query_text" class="form-textarea" placeholder="Enter the text to find echoes for..." required></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">📚 Corpus to Search</label>
+                    <div id="corpusInputs">
+                        <div class="corpus-input" style="margin-bottom: 1rem; padding: 1rem; background: rgba(26, 31, 58, 0.3); border-radius: 8px;">
+                            <div style="display: flex; gap: 1rem; margin-bottom: 0.5rem;">
+                                <input type="text" class="form-input" placeholder="Text title (optional)" style="flex: 1;">
+                                <select class="form-select" style="flex: 0 0 150px;">
+                                    <option value="lat">🏛️ Latin</option>
+                                    <option value="grc">🏺 Ancient Greek</option>
+                                    <option value="he">✡️ Hebrew</option>
+                                    <option value="sa">🕉️ Sanskrit</option>
+                                </select>
+                            </div>
+                            <textarea class="form-textarea" placeholder="Enter text from corpus..." required style="height: 80px;"></textarea>
+                        </div>
+                    </div>
+                    
+                    <div style="text-align: center; margin: 1rem 0;">
+                        <button type="button" id="addCorpusInput" class="btn btn-secondary">➕ Add Corpus Text</button>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">🎚️ Similarity Threshold</label>
+                    <input type="range" id="thresholdSlider" min="0.1" max="1.0" step="0.1" value="0.7" class="form-input">
+                    <div style="text-align: center; color: var(--accent-gold); font-weight: bold;" id="thresholdValue">0.7</div>
+                </div>
+                
+                <div style="text-align: center;">
+                    <button type="submit" class="btn">
+                        <span class="btn-text">📡 Find Echoes</span>
+                        <span class="btn-loading" style="display: none;">
+                            <span class="loading"></span> Listening for echoes...
+                        </span>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Echo Results -->
+        <div id="echoResults" style="display: none;"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Tab switching
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const targetTab = this.dataset.tab;
+            
+            // Update tab buttons
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(targetTab + '-tab').classList.add('active');
+        });
+    });
+    
+    // Threshold slider
+    document.getElementById('thresholdSlider').addEventListener('input', function() {
+        document.getElementById('thresholdValue').textContent = this.value;
+    });
+    
+    // Add text input for clustering
+    document.getElementById('addTextInput').addEventListener('click', function() {
+        const container = document.getElementById('textInputs');
+        const inputCount = container.children.length;
+        
+        if (inputCount < 10) {
+            const newInput = document.createElement('div');
+            newInput.className = 'text-cluster-input';
+            newInput.style.cssText = 'margin-bottom: 1rem; padding: 1rem; background: rgba(26, 31, 58, 0.3); border-radius: 8px;';
+            newInput.innerHTML = `
+                <div style="display: flex; gap: 1rem; margin-bottom: 0.5rem;">
+                    <input type="text" class="form-input" placeholder="Text title (optional)" style="flex: 1;">
+                    <select class="form-select" style="flex: 0 0 150px;">
+                        <option value="lat">🏛️ Latin</option>
+                        <option value="grc">🏺 Ancient Greek</option>
+                        <option value="he">✡️ Hebrew</option>
+                        <option value="sa">🕉️ Sanskrit</option>
+                    </select>
+                    <button type="button" class="btn btn-secondary" style="flex: 0 0 auto; padding: 0.5rem;" onclick="this.parentElement.parentElement.remove()">❌</button>
+                </div>
+                <textarea class="form-textarea" placeholder="Enter ancient text..." required style="height: 80px;"></textarea>
+            `;
+            container.appendChild(newInput);
+        }
+    });
+    
+    // Add corpus input for echoes
+    document.getElementById('addCorpusInput').addEventListener('click', function() {
+        const container = document.getElementById('corpusInputs');
+        const inputCount = container.children.length;
+        
+        if (inputCount < 20) {
+            const newInput = document.createElement('div');
+            newInput.className = 'corpus-input';
+            newInput.style.cssText = 'margin-bottom: 1rem; padding: 1rem; background: rgba(26, 31, 58, 0.3); border-radius: 8px;';
+            newInput.innerHTML = `
+                <div style="display: flex; gap: 1rem; margin-bottom: 0.5rem;">
+                    <input type="text" class="form-input" placeholder="Text title (optional)" style="flex: 1;">
+                    <select class="form-select" style="flex: 0 0 150px;">
+                        <option value="lat">🏛️ Latin</option>
+                        <option value="grc">🏺 Ancient Greek</option>
+                        <option value="he">✡️ Hebrew</option>
+                        <option value="sa">🕉️ Sanskrit</option>
+                    </select>
+                    <button type="button" class="btn btn-secondary" style="flex: 0 0 auto; padding: 0.5rem;" onclick="this.parentElement.parentElement.remove()">❌</button>
+                </div>
+                <textarea class="form-textarea" placeholder="Enter text from corpus..." required style="height: 80px;"></textarea>
+            `;
+            container.appendChild(newInput);
+        }
+    });
+    
+    // Similarity form submission
+    document.getElementById('similarityForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        await handleFormSubmission(this, '/api/v1/semantic/similarity', displaySimilarityResults);
+    });
+    
+    // Clustering form submission
+    document.getElementById('clusteringForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const texts = [];
+        document.querySelectorAll('.text-cluster-input').forEach(input => {
+            const title = input.querySelector('input[type="text"]').value;
+            const language = input.querySelector('select').value;
+            const text = input.querySelector('textarea').value;
+            
+            if (text.trim()) {
+                texts.push({
+                    text: text,
+                    language: language,
+                    title: title || null
+                });
+            }
+        });
+        
+        if (texts.length < 2) {
+            alert('Please enter at least 2 texts for clustering');
+            return;
+        }
+        
+        const data = {
+            texts: texts,
+            num_clusters: parseInt(this.num_clusters.value)
+        };
+        
+        await handleFormSubmission(this, '/api/v1/semantic/cluster', displayClusteringResults, data);
+    });
+    
+    // Echoes form submission
+    document.getElementById('echoesForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const corpus_texts = [];
+        document.querySelectorAll('.corpus-input').forEach(input => {
+            const title = input.querySelector('input[type="text"]').value;
+            const language = input.querySelector('select').value;
+            const text = input.querySelector('textarea').value;
+            
+            if (text.trim()) {
+                corpus_texts.push({
+                    text: text,
+                    language: language,
+                    title: title || null
+                });
+            }
+        });
+        
+        if (corpus_texts.length === 0) {
+            alert('Please enter at least 1 corpus text');
+            return;
+        }
+        
+        const data = {
+            query_text: this.query_text.value,
+            corpus_texts: corpus_texts,
+            threshold: parseFloat(document.getElementById('thresholdSlider').value)
+        };
+        
+        await handleFormSubmission(this, '/api/v1/semantic/echoes', displayEchoResults, data);
+    });
+    
+    async function handleFormSubmission(form, endpoint, displayFunction, customData = null) {
+        const btnText = form.querySelector('.btn-text');
+        const btnLoading = form.querySelector('.btn-loading');
+        const submitBtn = form.querySelector('button[type="submit"]');
+        
+        // Show loading state
+        btnText.style.display = 'none';
+        btnLoading.style.display = 'inline';
+        submitBtn.disabled = true;
+        
+        try {
+            let data;
+            if (customData) {
+                data = customData;
+            } else {
+                const formData = new FormData(form);
+                data = Object.fromEntries(formData.entries());
+            }
+            
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                displayFunction(result);
+            } else {
+                alert('Error: ' + (result.detail || 'Unknown error'));
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        } finally {
+            // Reset button state
+            btnText.style.display = 'inline';
+            btnLoading.style.display = 'none';
+            submitBtn.disabled = false;
+        }
+    }
+    
+    function displaySimilarityResults(result) {
+        const analysis = result.similarity_analysis;
+        const interpretation = result.interpretation;
+        
+        const html = `
+            <div class="card fade-in">
+                <h3 style="text-align: center; color: var(--accent-gold); margin-bottom: 2rem;">🔮 Similarity Analysis Results</h3>
+                
+                <div class="similarity-visualization">
+                    <div class="similarity-score">${Math.round(analysis.similarity_score * 100)}%</div>
+                    <div style="font-size: 1.2rem; color: var(--text-muted); margin-bottom: 1rem;">
+                        Similarity Strength: <strong style="color: var(--accent-gold);">${interpretation.strength.toUpperCase()}</strong>
+                    </div>
+                    <div style="color: var(--text-muted); font-style: italic;">
+                        ${interpretation.recommendation}
+                    </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin: 2rem 0;">
+                    <div>
+                        <h4 style="color: var(--accent-gold); margin-bottom: 1rem;">📜 First Text</h4>
+                        <div style="background: rgba(26, 31, 58, 0.5); padding: 1rem; border-radius: 8px; font-style: italic;">
+                            ${result.texts.text1}
+                        </div>
+                    </div>
+                    <div>
+                        <h4 style="color: var(--accent-gold); margin-bottom: 1rem;">📜 Second Text</h4>
+                        <div style="background: rgba(26, 31, 58, 0.5); padding: 1rem; border-radius: 8px; font-style: italic;">
+                            ${result.texts.text2}
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="margin: 2rem 0;">
+                    <h4 style="color: var(--accent-gold); margin-bottom: 1rem;">🔗 Semantic Connections</h4>
+                    <div class="connection-list">
+                        ${analysis.semantic_connections.map(conn => `
+                            <div class="connection-item">${conn}</div>
+                        `).join('')}
+                    </div>
+                </div>
+                
+                <div style="margin: 2rem 0;">
+                    <h4 style="color: var(--accent-gold); margin-bottom: 1rem;">🎭 Shared Themes</h4>
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                        ${analysis.shared_themes.map(theme => `
+                            <span style="background: var(--accent-gold); color: var(--primary-dark); padding: 0.3rem 0.8rem; border-radius: 15px; font-size: 0.9rem;">${theme}</span>
+                        `).join('')}
+                    </div>
+                </div>
+                
+                <div style="margin: 2rem 0;">
+                    <h4 style="color: var(--accent-gold); margin-bottom: 1rem;">📚 Linguistic Relationship</h4>
+                    <div style="font-size: 1.1rem; color: var(--text-light);">
+                        <strong>${analysis.linguistic_relationship.replace('_', ' ').toUpperCase()}</strong>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('similarityResults').innerHTML = html;
+        document.getElementById('similarityResults').style.display = 'block';
+        document.getElementById('similarityResults').scrollIntoView({ behavior: 'smooth' });
+    }
+    
+    function displayClusteringResults(result) {
+        const clustering = result.clustering_result;
+        const analysis = result.analysis;
+        
+        const html = `
+            <div class="card fade-in">
+                <h3 style="text-align: center; color: var(--accent-gold); margin-bottom: 2rem;">🕸️ Text Clustering Results</h3>
+                
+                <div style="text-align: center; margin-bottom: 2rem;">
+                    <div style="font-size: 1.2rem; color: var(--text-muted);">
+                        Found <strong style="color: var(--accent-gold);">${clustering.total_clusters}</strong> distinct thematic clusters
+                    </div>
+                </div>
+                
+                <div class="cluster-grid">
+                    ${clustering.clusters.map(cluster => `
+                        <div class="cluster-card">
+                            <div class="cluster-header">
+                                <div class="cluster-icon">${cluster.id + 1}</div>
+                                <div>
+                                    <h4 style="color: var(--accent-gold); margin: 0;">${cluster.theme}</h4>
+                                    <div style="color: var(--text-muted); font-size: 0.9rem;">${cluster.size} texts</div>
+                                </div>
+                            </div>
+                            
+                            <div style="margin-bottom: 1rem; color: var(--text-muted); font-size: 0.95rem;">
+                                ${cluster.summary}
+                            </div>
+                            
+                            <div>
+                                <h5 style="color: var(--text-light); margin-bottom: 0.5rem;">Texts in this cluster:</h5>
+                                ${cluster.texts.map(text => `
+                                    <div style="background: rgba(26, 31, 58, 0.3); padding: 0.8rem; margin: 0.5rem 0; border-radius: 6px; font-style: italic; font-size: 0.9rem;">
+                                        ${text.length > 100 ? text.substring(0, 100) + '...' : text}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <div style="margin-top: 2rem; text-align: center;">
+                    <h4 style="color: var(--accent-gold);">📊 Cluster Analysis</h4>
+                    <div style="margin: 1rem 0;">
+                        <strong>Dominant Themes:</strong> ${analysis.dominant_themes.join(', ')}
+                    </div>
+                    ${analysis.largest_cluster ? `
+                        <div style="margin: 1rem 0;">
+                            <strong>Largest Cluster:</strong> "${analysis.largest_cluster.theme}" (${analysis.largest_cluster.size} texts)
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('clusteringResults').innerHTML = html;
+        document.getElementById('clusteringResults').style.display = 'block';
+        document.getElementById('clusteringResults').scrollIntoView({ behavior: 'smooth' });
+    }
+    
+    function displayEchoResults(result) {
+        const echo = result.echo_analysis;
+        const insights = result.insights;
+        
+        const html = `
+            <div class="card fade-in">
+                <h3 style="text-align: center; color: var(--accent-gold); margin-bottom: 2rem;">📡 Textual Echo Analysis</h3>
+                
+                <div style="margin-bottom: 2rem;">
+                    <h4 style="color: var(--accent-gold);">🎯 Query Text</h4>
+                    <div style="background: rgba(26, 31, 58, 0.5); padding: 1rem; border-radius: 8px; font-style: italic; border-left: 4px solid var(--accent-gold);">
+                        ${echo.query_text}
+                    </div>
+                </div>
+                
+                <div style="text-align: center; margin: 2rem 0;">
+                    <div style="font-size: 1.2rem; color: var(--text-muted);">
+                        Found <strong style="color: var(--accent-gold);">${echo.echoes_found}</strong> echoes above ${echo.threshold_used} threshold
+                    </div>
+                </div>
+                
+                ${echo.echoes.length > 0 ? `
+                    <div>
+                        <h4 style="color: var(--accent-gold); margin-bottom: 1rem;">🌟 Discovered Echoes</h4>
+                        ${echo.echoes.map(echoItem => `
+                            <div class="echo-result">
+                                <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 1rem;">
+                                    <h5 style="color: var(--text-light); margin: 0;">${echoItem.title}</h5>
+                                    <span class="echo-score">${Math.round(echoItem.similarity_score * 100)}%</span>
+                                </div>
+                                
+                                <div style="font-style: italic; margin-bottom: 1rem; color: var(--text-light);">
+                                    ${echoItem.text.length > 200 ? echoItem.text.substring(0, 200) + '...' : echoItem.text}
+                                </div>
+                                
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                    <div>
+                                        <strong style="color: var(--accent-bronze);">Semantic Connections:</strong>
+                                        <div style="margin-top: 0.5rem;">
+                                            ${echoItem.semantic_connections.map(conn => `
+                                                <span style="background: rgba(212, 175, 55, 0.2); padding: 0.2rem 0.5rem; border-radius: 10px; font-size: 0.8rem; margin-right: 0.5rem;">${conn}</span>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <strong style="color: var(--accent-bronze);">Shared Themes:</strong>
+                                        <div style="margin-top: 0.5rem;">
+                                            ${echoItem.shared_themes.map(theme => `
+                                                <span style="background: rgba(233, 69, 96, 0.2); padding: 0.2rem 0.5rem; border-radius: 10px; font-size: 0.8rem; margin-right: 0.5rem;">${theme}</span>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div style="margin-top: 1rem; font-size: 0.9rem; color: var(--text-muted);">
+                                    <strong>Relationship:</strong> ${echoItem.linguistic_relationship.replace('_', ' ')}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : `
+                    <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                        <h4>🔍 No echoes found above the threshold</h4>
+                        <p>Try lowering the similarity threshold or adding more texts to the corpus.</p>
+                    </div>
+                `}
+                
+                ${insights.strongest_echo ? `
+                    <div style="margin-top: 2rem; text-align: center;">
+                        <h4 style="color: var(--accent-gold);">🎯 Key Insights</h4>
+                        <div style="margin: 1rem 0;">
+                            <strong>Strongest Echo:</strong> "${insights.strongest_echo.title}" (${Math.round(insights.strongest_echo.similarity_score * 100)}%)
+                        </div>
+                        ${insights.common_themes.length > 0 ? `
+                            <div style="margin: 1rem 0;">
+                                <strong>Most Common Themes:</strong> ${insights.common_themes.join(', ')}
+                            </div>
+                        ` : ''}
+                    </div>
+                ` : ''}
+            </div>
+        `;
+        
+        document.getElementById('echoResults').innerHTML = html;
+        document.getElementById('echoResults').style.display = 'block';
+        document.getElementById('echoResults').scrollIntoView({ behavior: 'smooth' });
+    }
+});
+</script>
+{% endblock %}

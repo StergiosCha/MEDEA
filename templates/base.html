@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}MEDEA-NEUMOUSA - Destroyer of Robots{% endblock %}</title>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/medea.css') }}">
+    
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔮</text></svg>">
+    
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/" class="nav-brand">
+                <span class="brand-icon">🔮</span>
+                <span class="brand-text">MEDEA-NEUMOUSA</span>
+                <span class="brand-subtitle">Destroyer of Robots</span>
+            </a>
+            
+            <div class="nav-links">
+                <a href="/" class="nav-link">Home</a>
+                <a href="/translate" class="nav-link">Necromancer</a>
+                <a href="/semantic" class="nav-link">Semantic Oracle</a>
+                <a href="/docs" class="nav-link" target="_blank">API</a>
+                <a href="/health" class="nav-link">Status</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3>🏛️ The Mythology</h3>
+                <p><strong>Medea</strong> - The sorceress who destroyed Talos, the bronze automaton</p>
+                <p><strong>Neumousa</strong> - "Nine (Neu) Muses" - Goddesses of  neural (NEU) knowledge</p>
+            </div>
+            
+            <div class="footer-section">
+                <h3>⚡ Powers</h3>
+                <ul>
+                    <li>🗣️ Resurrect dead languages</li>
+                    <li>🏛️ Classical text analysis</li>
+                    <li>🕸️ Semantic networks</li>
+                    <li>📜 Manuscript processing</li>
+                </ul>
+            </div>
+            
+            <div class="footer-section">
+                <h3>🌍 Ancient Tongues</h3>
+                <p>Latin • Ancient Greek • Sanskrit • Gothic • Hittite • Hebrew • Aramaic • Old Norse • And more...</p>
+            </div>
+        </div>
+        
+        <div class="footer-bottom">
+            <p>&copy; 2025 MEDEA-NEUMOUSA. Where ancient voices rise and bronze giants fall.</p>
+            <p class="footer-quote"><em>"MEDEA-NEUMOUSA bring ancient languages back from the dead."</em></p>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script src="{{ url_for('static', path='/js/necromancer.js') }}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
