@@ -21,7 +21,6 @@ google-generativeai>=0.3.2
 # Classical Studies - Medea's Ancient Knowledge
 cltk>=1.1.6
 greek-accentuation>=1.2.0
-pypi-cltk>=1.0.0
 
 # Modern NLP - Contemporary Sorcery
 spacy>=3.7.0
