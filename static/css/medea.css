@@ -462,3 +462,63 @@ h3 { font-size: 1.8rem; }
     from { opacity: 0; transform: translateY(20px); }
     to { opacity: 1; transform: translateY(0); }
 }
+
+/* Add this to your existing medea.css file */
+
+/* Attribution Section */
+.footer-attribution {
+    background: rgba(212, 175, 55, 0.1);
+    border-top: 1px solid var(--accent-gold);
+    border-bottom: 1px solid var(--accent-gold);
+    padding: 1.5rem 2rem;
+    margin: 1rem 0;
+}
+
+.attribution-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.attribution-main h4 {
+    color: var(--accent-gold);
+    margin-bottom: 0.5rem;
+    font-family: 'Cinzel', serif;
+    font-size: 1.1rem;
+}
+
+.attribution-creator {
+    margin-top: 1rem;
+}
+
+.attribution-creator strong {
+    color: var(--accent-gold);
+    font-weight: 600;
+}
+
+.attribution-creator a {
+    color: var(--accent-gold);
+    text-decoration: none;
+    border-bottom: 1px dotted var(--accent-gold);
+    transition: all 0.3s ease;
+}
+
+.attribution-creator a:hover {
+    color: var(--text-accent);
+    border-bottom-color: var(--text-accent);
+}
+
+/* Responsive attribution */
+@media (max-width: 768px) {
+    .footer-attribution {
+        padding: 1rem;
+    }
+    
+    .attribution-main h4 {
+        font-size: 1rem;
+    }
+    
+    .attribution-creator {
+        font-size: 0.9rem;
+    }
+}
