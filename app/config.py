@@ -1,6 +1,6 @@
 """
 MEDEA-NEUMOUSA Configuration
-The Robot Destroyer's Settings and Parameters
+The Talos Destroyer's Settings and Parameters
 """
 from pydantic_settings import BaseSettings
 from typing import List, Optional
@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     
     # Application Identity
     app_name: str = "MEDEA-NEUMOUSA"
-    app_subtitle: str = "The Robot Destroyer - Classical Studies AI Platform"
+    app_subtitle: str = "The Talos Destroyer - Classical Studies AI Platform"
     app_version: str = "1.0.0"
     app_description: str = "Where ancient languages live again and bronze giants fall"
     debug: bool = False
@@ -98,7 +98,7 @@ class Settings(BaseSettings):
     log_format: str = "%(asctime)s - MEDEA - %(name)s - %(levelname)s - %(message)s"
     
     # Necromancer Specific Settings
-    necromancer_model: str = "gemini-2.0-flash-exp"
+    necromancer_model: str = "gemini-2.0-flash"
     necromancer_temperature: float = 0.1
     necromancer_max_tokens: int = 2048
     
