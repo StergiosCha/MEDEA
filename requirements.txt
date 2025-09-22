@@ -67,3 +67,7 @@ prometheus-client>=0.18.0
 # Additional Classical Tools
 pyuca>=1.2  # Unicode Collation Algorithm for ancient scripts
 regex>=2023.10.3  # Advanced regex for complex ancient text patterns
+
+aiohttp>=3.9.0
+urielplus>=0.1.0
+openpyxl>=3.1.0 
