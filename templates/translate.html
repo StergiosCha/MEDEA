@@ -19,6 +19,34 @@
         transition: width 0.3s ease;
     }
     
+    .confidence-metrics {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin: 1rem 0;
+    }
+    
+    .confidence-metric {
+        background: rgba(26, 31, 58, 0.3);
+        padding: 1rem;
+        border-radius: 8px;
+        border-left: 3px solid var(--accent-bronze);
+    }
+    
+    .tier-badge {
+        display: inline-block;
+        padding: 0.2rem 0.5rem;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: bold;
+        margin-left: 0.5rem;
+    }
+    
+    .tier-1 { background: #2d5016; color: #7cb342; }
+    .tier-2 { background: #1a237e; color: #5c6bc0; }
+    .tier-3 { background: #e65100; color: #ff9800; }
+    .tier-4 { background: #b71c1c; color: #f44336; }
+    
     .example-text {
         background: rgba(212, 175, 55, 0.1);
         border: 1px solid var(--accent-gold);
@@ -35,18 +63,90 @@
         transform: translateX(5px);
     }
     
-    .alternatives {
-        margin-top: 1rem;
-        padding-top: 1rem;
-        border-top: 1px solid var(--border-color);
-    }
-    
     .alternative-item {
         background: rgba(26, 31, 58, 0.5);
         border-radius: 8px;
-        padding: 0.8rem;
-        margin: 0.5rem 0;
+        padding: 1rem;
+        margin: 0.8rem 0;
         border-left: 3px solid var(--accent-bronze);
+    }
+    
+    .alternative-translation {
+        font-size: 1.1rem;
+        font-style: italic;
+        margin-bottom: 0.5rem;
+    }
+    
+    .alternative-notes {
+        font-size: 0.9rem;
+        color: var(--text-muted);
+    }
+    
+    .philological-analysis {
+        background: rgba(26, 31, 58, 0.2);
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin: 1.5rem 0;
+        border: 1px solid var(--border-color);
+    }
+    
+    .analysis-toggle {
+        cursor: pointer;
+        user-select: none;
+        color: var(--accent-gold);
+    }
+    
+    .analysis-toggle:hover {
+        text-decoration: underline;
+    }
+    
+    .word-analysis {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .word-item {
+        background: rgba(212, 175, 55, 0.1);
+        padding: 1rem;
+        border-radius: 8px;
+        border-left: 3px solid var(--accent-gold);
+    }
+    
+    .genre-badge {
+        display: inline-block;
+        background: var(--accent-bronze);
+        color: white;
+        padding: 0.3rem 0.8rem;
+        border-radius: 15px;
+        font-size: 0.85rem;
+        font-weight: bold;
+        text-transform: uppercase;
+    }
+    
+    /* NEW: Smart Mode Indicator */
+    .mode-indicator {
+        background: rgba(212, 175, 55, 0.1);
+        border: 1px solid var(--accent-gold);
+        border-radius: 8px;
+        padding: 0.8rem;
+        margin: 1rem 0;
+        font-size: 0.9rem;
+        text-align: center;
+    }
+    
+    .mode-simple { color: #ff9800; }
+    .mode-enhanced { color: #4caf50; }
+    .mode-error { color: #f44336; }
+    
+    /* NEW: Mode Selection Display */
+    .mode-selection-display {
+        background: rgba(212, 175, 55, 0.1);
+        border-left: 3px solid var(--accent-gold);
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border-radius: 8px;
     }
 </style>
 {% endblock %}
@@ -54,11 +154,14 @@
 {% block content %}
 <div class="translate-container">
     <div style="text-align: center; margin-bottom: 3rem;">
-        <h1 style="font-size: 3rem; margin-bottom: 1rem;">🔮 The Necromancer</h1>
+        <h1 style="font-size: 3rem; margin-bottom: 1rem;">🔮 The Enhanced Necromancer</h1>
         <p style="font-size: 1.3rem; color: var(--text-muted); font-style: italic;">
             "Ἡ Μήδεια ἀνίστησι τὰς φωνὰς τῶν νεκρῶν"<br>
             <span style="font-size: 1rem;">"Medea resurrects the voices of the dead"</span>
         </p>
+        <div style="margin-top: 1rem;">
+            <span style="font-size: 0.9rem; color: var(--text-muted);">Enhanced v2.0 • 18 Ancient Languages • Genre-Aware • Cultural Context</span>
+        </div>
     </div>
 
     <!-- Translation Form -->
@@ -69,18 +172,40 @@
                 <label class="form-label" for="sourceLanguage">🗣️ Source Language</label>
                 <select id="sourceLanguage" name="source_language" class="form-select" required>
                     <option value="">Select source language...</option>
-                    <option value="lat">🏛️ Latin</option>
-                    <option value="grc">🏺 Ancient Greek</option>
-                    <option value="he">✡️ Hebrew</option>
-                    <option value="arc">📿 Aramaic</option>
-                    <option value="got">⚔️ Gothic</option>
-                    <option value="non">🛡️ Old Norse</option>
-                    <option value="ang">👑 Old English</option>
-                    <option value="sa">🕉️ Sanskrit</option>
-                    <option value="hit">🏺 Hittite</option>
-                    <option value="cop">✝️ Coptic</option>
-                    <option value="syr">📿 Syriac</option>
-                    <option value="akk">🏺 Akkadian</option>
+                    <!-- Tier 1 Languages -->
+                    <optgroup label="🌟 Tier 1 - High Confidence">
+                        <option value="lat">🏛️ Latin</option>
+                        <option value="grc">🏺 Ancient Greek</option>
+                        <option value="he">✡️ Hebrew</option>
+                        <option value="enm">📜 Middle English</option>
+                    </optgroup>
+                    <!-- Tier 2 Languages -->
+                    <optgroup label="⭐ Tier 2 - Good Confidence">
+                        <option value="sa">🕉️ Sanskrit</option>
+                        <option value="ara">☪️ Arabic</option>
+                        <option value="ang">👑 Old English</option>
+                        <option value="non">🛡️ Old Norse</option>
+                        <option value="frm">🏰 Middle French</option>
+                        <option value="xno">👑 Anglo-Norman</option>
+                    </optgroup>
+                    <!-- Tier 3 Languages -->
+                    <optgroup label="💫 Tier 3 - Moderate Confidence">
+                        <option value="arc">📿 Aramaic</option>
+                        <option value="gmh">🏰 Middle High German</option>
+                        <option value="cop">✝️ Coptic</option>
+                        <option value="syr">📿 Syriac</option>
+                        <option value="got">⚔️ Gothic</option>
+                    </optgroup>
+                    <!-- Tier 4 Languages -->
+                    <optgroup label="🔬 Tier 4 - Experimental">
+                        <option value="peo">🏺 Old Persian</option>
+                        <option value="av">🔥 Avestan</option>
+                        <option value="akk">🏺 Akkadian</option>
+                        <option value="hit">🏺 Hittite</option>
+                        <option value="egy">𓀀 Middle Egyptian</option>
+                        <option value="luv">🏺 Luvian</option>
+                        <option value="pal">🏺 Palaic</option>
+                    </optgroup>
                 </select>
             </div>
             
@@ -92,20 +217,68 @@
                 <label class="form-label" for="targetLanguage">👻 Target Language</label>
                 <select id="targetLanguage" name="target_language" class="form-select" required>
                     <option value="">Select target language...</option>
-                    <option value="lat">🏛️ Latin</option>
-                    <option value="grc">🏺 Ancient Greek</option>
-                    <option value="he">✡️ Hebrew</option>
-                    <option value="arc">📿 Aramaic</option>
-                    <option value="got">⚔️ Gothic</option>
-                    <option value="non">🛡️ Old Norse</option>
-                    <option value="ang">👑 Old English</option>
-                    <option value="sa">🕉️ Sanskrit</option>
-                    <option value="hit">🏺 Hittite</option>
-                    <option value="cop">✝️ Coptic</option>
-                    <option value="syr">📿 Syriac</option>
-                    <option value="akk">🏺 Akkadian</option>
+                    <!-- Same options as source -->
+                    <optgroup label="🌟 Tier 1 - High Confidence">
+                        <option value="lat">🏛️ Latin</option>
+                        <option value="grc">🏺 Ancient Greek</option>
+                        <option value="he">✡️ Hebrew</option>
+                        <option value="enm">📜 Middle English</option>
+                    </optgroup>
+                    <optgroup label="⭐ Tier 2 - Good Confidence">
+                        <option value="sa">🕉️ Sanskrit</option>
+                        <option value="ara">☪️ Arabic</option>
+                        <option value="ang">👑 Old English</option>
+                        <option value="non">🛡️ Old Norse</option>
+                        <option value="frm">🏰 Middle French</option>
+                        <option value="xno">👑 Anglo-Norman</option>
+                    </optgroup>
+                    <optgroup label="💫 Tier 3 - Moderate Confidence">
+                        <option value="arc">📿 Aramaic</option>
+                        <option value="gmh">🏰 Middle High German</option>
+                        <option value="cop">✝️ Coptic</option>
+                        <option value="syr">📿 Syriac</option>
+                        <option value="got">⚔️ Gothic</option>
+                    </optgroup>
+                    <optgroup label="🔬 Tier 4 - Experimental">
+                        <option value="peo">🏺 Old Persian</option>
+                        <option value="av">🔥 Avestan</option>
+                        <option value="akk">🏺 Akkadian</option>
+                        <option value="hit">🏺 Hittite</option>
+                        <option value="egy">𓀀 Middle Egyptian</option>
+                        <option value="luv">🏺 Luvian</option>
+                        <option value="pal">🏺 Palaic</option>
+                    </optgroup>
                 </select>
             </div>
+        </div>
+
+        <!-- Advanced Options -->
+        <div class="form-group">
+            <details>
+                <summary style="cursor: pointer; color: var(--accent-gold); margin-bottom: 1rem;">⚙️ Advanced Options</summary>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem;">
+                        <input type="checkbox" id="includeAnalysis" name="include_analysis" checked>
+                        Include Philological Analysis
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 0.5rem;">
+                        <input type="checkbox" id="includeAlternatives" name="include_alternatives" checked>
+                        Include Alternative Translations
+                    </label>
+                    <div class="form-group">
+                        <label class="form-label" for="genreHint">Genre Hint (Optional)</label>
+                        <select id="genreHint" name="genre_hint" class="form-select">
+                            <option value="">Auto-detect</option>
+                            <option value="epic">Epic Poetry</option>
+                            <option value="religious">Religious Text</option>
+                            <option value="legal">Legal Document</option>
+                            <option value="philosophical">Philosophical Work</option>
+                            <option value="historical">Historical Chronicle</option>
+                            <option value="poetic">Lyric Poetry</option>
+                        </select>
+                    </div>
+                </div>
+            </details>
         </div>
 
         <!-- Text Input -->
@@ -121,26 +294,33 @@ Examples:
 • Latin: Arma virumque cano, Troiae qui primus ab oris
 • Greek: μῆνιν ἄειδε θεὰ Πηληϊάδεω Ἀχιλῆος
 • Hebrew: בְּרֵאשִׁית בָּרָא אֱלֹהִים
-• Sanskrit: असतो मा सद्गमय"
+• Sanskrit: असतो मा सद्गमय तमसो मा ज्योतिर्गमय"
                 required
             ></textarea>
+            <!-- NEW: Mode Indicator -->
+            <div id="modeIndicator" class="mode-indicator" style="display: none;">
+                Enter text to see translation mode
+            </div>
         </div>
 
         <!-- Example Texts -->
         <div style="margin-bottom: 2rem;">
             <label class="form-label">💡 Try These Examples:</label>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
-                <div class="example-text" data-text="Arma virumque cano, Troiae qui primus ab oris" data-source="lat">
-                    <strong>Virgil (Latin):</strong> "Arma virumque cano..."
+                <div class="example-text" data-text="Arma virumque cano, Troiae qui primus ab oris" data-source="lat" data-target="grc">
+                    <strong>Virgil (Latin → Greek):</strong> "Arma virumque cano..."
                 </div>
-                <div class="example-text" data-text="μῆνιν ἄειδε θεὰ Πηληϊάδεω Ἀχιλῆος" data-source="grc">
-                    <strong>Homer (Greek):</strong> "μῆνιν ἄειδε θεὰ..."
+                <div class="example-text" data-text="μῆνιν ἄειδε θεὰ Πηληϊάδεω Ἀχιλῆος" data-source="grc" data-target="lat">
+                    <strong>Homer (Greek → Latin):</strong> "μῆνιν ἄειδε θεὰ..."
                 </div>
-                <div class="example-text" data-text="בְּרֵאשִׁית בָּרָא אֱלֹהִים אֵת הַשָּׁמַיִם" data-source="he">
-                    <strong>Genesis (Hebrew):</strong> "בְּרֵאשִׁית בָּרָא..."
+                <div class="example-text" data-text="בְּרֵאשִׁית בָּרָא אֱלֹהִים אֵת הַשָּׁמַיִם" data-source="he" data-target="grc">
+                    <strong>Genesis (Hebrew → Greek):</strong> "בְּרֵאשִׁית בָּרָא..."
                 </div>
-                <div class="example-text" data-text="असतो मा सद्गमय तमसो मा ज्योतिर्गमय" data-source="sa">
-                    <strong>Upanishads (Sanskrit):</strong> "असतो मा सद्गमय..."
+                <div class="example-text" data-text="असतो मा सद्गमय तमसो मा ज्योतिर्गमय" data-source="sa" data-target="lat">
+                    <strong>Upanishads (Sanskrit → Latin):</strong> "असतो मा सद्गमय..."
+                </div>
+                <div class="example-text" data-text="Τοῖς δ᾽ Ἀθηναίοις καὶ Πελοποννησίοις αἰτίαι μὲν αὗται προυγεγένηντο ἐς ἀλλήλους, τοῖς μὲν Κορινθίοις ὅτι τὴν Ποτείδαιαν ἑαυτῶν οὖσαν ἀποικίαν καὶ ἄνδρας Κορινθίων τε καὶ Πελοποννησίων ἐν αὐτῇ ὄντας ἐπολιόρκουν" data-source="grc" data-target="lat">
+                    <strong>Thucydides (Long Greek → Latin):</strong> "Τοῖς δ᾽ Ἀθηναίοις καὶ Πελοποννησίοις..."
                 </div>
             </div>
         </div>
@@ -150,7 +330,7 @@ Examples:
             <button type="submit" class="btn" id="resurrectBtn">
                 <span id="btnText">🔮 Resurrect Ancient Voices</span>
                 <span id="btnLoading" style="display: none;">
-                    <span class="loading"></span> Channeling spirits...
+                    <span class="loading"></span> Channeling enhanced spirits...
                 </span>
             </button>
         </div>
@@ -160,8 +340,20 @@ Examples:
     <div id="resultsSection" style="display: none;">
         <div class="card result-card">
             <h3 style="text-align: center; margin-bottom: 2rem; color: var(--accent-gold);">
-                ⚡ The Ancient Voices Speak
+                ⚡ The Enhanced Ancient Voices Speak
             </h3>
+            
+            <!-- NEW: Mode Selection Display -->
+            <div id="modeSelectionDisplay" class="mode-selection-display" style="display: none;">
+                <strong>🔮 Translation Mode:</strong> <span id="selectedMode"></span><br>
+                <small id="modeReason"></small>
+            </div>
+            
+            <!-- Metadata Header -->
+            <div style="display: flex; justify-content: center; align-items: center; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap;">
+                <div class="genre-badge" id="genreBadge"></div>
+                <div style="color: var(--text-muted);" id="languageInfo"></div>
+            </div>
             
             <!-- Original Text -->
             <div style="margin-bottom: 2rem;">
@@ -175,29 +367,46 @@ Examples:
                 <div id="resurrectedText" class="result-text" style="font-size: 1.4rem; padding: 1.5rem; background: linear-gradient(135deg, rgba(212, 175, 55, 0.1), rgba(233, 69, 96, 0.1)); border-radius: 10px; border: 2px solid var(--accent-gold);"></div>
             </div>
             
-            <!-- Metadata -->
-            <div class="result-meta">
-                <div class="meta-item">
-                    <div class="meta-label">Source Language</div>
-                    <div class="meta-value" id="metaSource"></div>
-                </div>
-                <div class="meta-item">
-                    <div class="meta-label">Target Language</div>
-                    <div class="meta-value" id="metaTarget"></div>
-                </div>
-                <div class="meta-item">
-                    <div class="meta-label">Confidence</div>
-                    <div class="meta-value" id="metaConfidence"></div>
+            <!-- Enhanced Confidence Metrics -->
+            <div class="confidence-metrics" id="confidencemetrics">
+                <div class="confidence-metric">
+                    <div style="font-weight: bold; color: var(--accent-gold);">Overall Confidence</div>
+                    <div id="overallConfidence">0%</div>
                     <div class="confidence-bar">
-                        <div class="confidence-fill" id="confidenceFill"></div>
+                        <div class="confidence-fill" id="overallConfidenceFill"></div>
+                    </div>
+                </div>
+                <div class="confidence-metric">
+                    <div style="font-weight: bold; color: var(--accent-bronze);">Lexical Accuracy</div>
+                    <div id="lexicalConfidence">0%</div>
+                    <div class="confidence-bar">
+                        <div class="confidence-fill" id="lexicalConfidenceFill"></div>
+                    </div>
+                </div>
+                <div class="confidence-metric">
+                    <div style="font-weight: bold; color: var(--text-accent);">Cultural Fidelity</div>
+                    <div id="culturalConfidence">0%</div>
+                    <div class="confidence-bar">
+                        <div class="confidence-fill" id="culturalConfidenceFill"></div>
                     </div>
                 </div>
             </div>
             
-            <!-- Spiritual Notes -->
-            <div id="spiritualNotes" style="margin-top: 2rem; padding: 1.5rem; background: rgba(26, 31, 58, 0.3); border-radius: 10px; border-left: 4px solid var(--accent-bronze);">
-                <h4 style="color: var(--accent-bronze); margin-bottom: 1rem;">🔮 Spiritual Notes:</h4>
+            <!-- Philological Analysis -->
+            <div id="analysisSection" class="philological-analysis" style="display: none;">
+                <h4 class="analysis-toggle" onclick="toggleAnalysis()">
+                    📚 Philological Analysis <span id="analysisToggleIcon">▼</span>
+                </h4>
+                <div id="analysisContent" style="display: none;">
+                    <div id="wordAnalysis" class="word-analysis"></div>
+                </div>
+            </div>
+            
+            <!-- Translation Notes -->
+            <div id="translationNotes" style="margin-top: 2rem; padding: 1.5rem; background: rgba(26, 31, 58, 0.3); border-radius: 10px; border-left: 4px solid var(--accent-bronze);">
+                <h4 style="color: var(--accent-bronze); margin-bottom: 1rem;">🔮 Scholar's Commentary:</h4>
                 <div id="notesContent"></div>
+                <div id="methodologyNotes" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);"></div>
             </div>
             
             <!-- Alternatives -->
@@ -213,6 +422,9 @@ Examples:
                 </button>
                 <button type="button" class="btn btn-secondary" id="copyResult" style="margin-left: 1rem;">
                     📋 Copy Result
+                </button>
+                <button type="button" class="btn btn-secondary" id="shareResult" style="margin-left: 1rem;">
+                    🔗 Share Translation
                 </button>
             </div>
         </div>
@@ -243,6 +455,30 @@ document.addEventListener('DOMContentLoaded', function() {
     const btnText = document.getElementById('btnText');
     const btnLoading = document.getElementById('btnLoading');
     
+    // NEW: Smart Mode Indicator
+    document.getElementById('inputText').addEventListener('input', function() {
+        const length = this.value.length;
+        const indicator = document.getElementById('modeIndicator');
+        
+        if (length === 0) {
+            indicator.style.display = 'none';
+            return;
+        }
+        
+        indicator.style.display = 'block';
+        
+        if (length > 2000) {
+            indicator.innerHTML = '🚫 <span class="mode-error">Text too long! Maximum 2000 characters.</span>';
+            indicator.className = 'mode-indicator mode-error';
+        } else if (length > 200) {
+            indicator.innerHTML = '⚡ <span class="mode-simple">Will use SIMPLE mode (fast translation for long texts)</span>';
+            indicator.className = 'mode-indicator mode-simple';
+        } else {
+            indicator.innerHTML = '🔮 <span class="mode-enhanced">Will use ENHANCED mode (detailed analysis for short texts)</span>';
+            indicator.className = 'mode-indicator mode-enhanced';
+        }
+    });
+    
     // Example text handlers
     document.querySelectorAll('.example-text').forEach(example => {
         example.addEventListener('click', function() {
@@ -250,6 +486,11 @@ document.addEventListener('DOMContentLoaded', function() {
             if (this.dataset.source) {
                 document.getElementById('sourceLanguage').value = this.dataset.source;
             }
+            if (this.dataset.target) {
+                document.getElementById('targetLanguage').value = this.dataset.target;
+            }
+            // Trigger mode indicator update
+            document.getElementById('inputText').dispatchEvent(new Event('input'));
         });
     });
     
@@ -263,6 +504,8 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Form submission
+// REPLACE the form submission section in your template with this:
+
     form.addEventListener('submit', async function(e) {
         e.preventDefault();
         
@@ -279,11 +522,18 @@ document.addEventListener('DOMContentLoaded', function() {
         const data = {
             text: formData.get('text'),
             source_language: formData.get('source_language'),
-            target_language: formData.get('target_language')
+            target_language: formData.get('target_language'),
+            include_analysis: document.getElementById('includeAnalysis').checked,
+            include_alternatives: document.getElementById('includeAlternatives').checked
         };
         
+        if (document.getElementById('genreHint').value) {
+            data.genre_hint = document.getElementById('genreHint').value;
+        }
+        
         try {
-            const response = await fetch('/api/v1/necromancer/resurrect', {
+            // FIXED URL - removed /api/v1
+            const response = await fetch('/necromancer/resurrect', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -296,10 +546,20 @@ document.addEventListener('DOMContentLoaded', function() {
             if (response.ok) {
                 displayResults(result);
             } else {
-                displayError(result.detail || 'Unknown error occurred');
+                // Enhanced error handling
+                let errorMessage = 'Unknown error occurred';
+                if (result.detail) {
+                    if (typeof result.detail === 'object') {
+                        errorMessage = result.detail.message || result.detail.error || result.detail;
+                    } else {
+                        errorMessage = result.detail;
+                    }
+                }
+                displayError(errorMessage);
             }
         } catch (error) {
-            displayError('Failed to connect to the necromancer. Please try again.');
+            console.error('Network error:', error);
+            displayError('Failed to connect to the necromancer. Check console for details.');
         } finally {
             // Reset button state
             btnText.style.display = 'inline';
@@ -309,25 +569,74 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     function displayResults(result) {
-        // Populate result fields
+        // NEW: Show mode selection if available
+        if (result.auto_mode_selection) {
+            const modeDisplay = document.getElementById('modeSelectionDisplay');
+            document.getElementById('selectedMode').textContent = result.auto_mode_selection.selected_mode.toUpperCase();
+            document.getElementById('modeReason').textContent = result.auto_mode_selection.reason;
+            modeDisplay.style.display = 'block';
+        }
+        
+        // Populate basic fields
         document.getElementById('originalText').textContent = result.source_text;
         document.getElementById('resurrectedText').textContent = result.resurrected_text;
-        document.getElementById('metaSource').textContent = result.source_language;
-        document.getElementById('metaTarget').textContent = result.target_language;
-        document.getElementById('metaConfidence').textContent = Math.round(result.confidence * 100) + '%';
-        document.getElementById('notesContent').textContent = result.spiritual_notes || 'The ancient spirits have spoken.';
         
-        // Update confidence bar
-        const confidenceFill = document.getElementById('confidenceFill');
-        confidenceFill.style.width = (result.confidence * 100) + '%';
+        // Display genre and language info
+        document.getElementById('genreBadge').textContent = result.detected_genre || 'general';
+        const sourceLang = result.source_language?.name || result.source_language;
+        const targetLang = result.target_language?.name || result.target_language;
+        const sourceTier = result.source_language?.confidence_tier;
+        const targetTier = result.target_language?.confidence_tier;
         
-        // Handle alternatives
-        if (result.alternatives && result.alternatives.length > 0) {
-            const alternativesList = document.getElementById('alternativesList');
-            alternativesList.innerHTML = result.alternatives.map(alt => 
-                `<div class="alternative-item">${alt}</div>`
-            ).join('');
-            document.getElementById('alternativesSection').style.display = 'block';
+        document.getElementById('languageInfo').innerHTML = 
+            `${sourceLang} <span class="tier-badge tier-${sourceTier}">Tier ${sourceTier}</span> → ${targetLang} <span class="tier-badge tier-${targetTier}">Tier ${targetTier}</span>`;
+        
+        // Display enhanced confidence metrics
+        const confidence = result.confidence_metrics || {};
+        displayConfidence('overall', confidence.final_confidence || confidence.overall_confidence || 0);
+        displayConfidence('lexical', confidence.lexical_confidence || 0);
+        displayConfidence('cultural', confidence.cultural_confidence || 0);
+        
+        // Display translation notes - handle both smart mode and current API
+        const metadata = result.translation_metadata || {};
+        const methodology = metadata.methodology || {};
+        const scholarlyNotes = metadata.scholarly_notes || result.scholarly_notes || {};
+        
+        let notesHtml = '';
+        if (scholarlyNotes.philological_commentary) {
+            notesHtml += `<p><strong>Commentary:</strong> ${scholarlyNotes.philological_commentary}</p>`;
+        }
+        if (scholarlyNotes.untranslatable_elements) {
+            notesHtml += `<p><strong>Untranslatable Elements:</strong> ${scholarlyNotes.untranslatable_elements}</p>`;
+        }
+        if (result.spiritual_notes) {
+            notesHtml += `<p>${result.spiritual_notes}</p>`;
+        }
+        
+        document.getElementById('notesContent').innerHTML = notesHtml || 'The enhanced spirits have spoken with cultural wisdom.';
+        
+        let methodologyHtml = '';
+        if (methodology.approach) {
+            methodologyHtml += `<p><strong>Translation Approach:</strong> ${methodology.approach}</p>`;
+        }
+        if (methodology.cultural_adaptations) {
+            methodologyHtml += `<p><strong>Cultural Adaptations:</strong> ${methodology.cultural_adaptations}</p>`;
+        }
+        if (metadata.mode) {
+            methodologyHtml += `<p><strong>Processing Mode:</strong> ${metadata.mode.toUpperCase()}</p>`;
+        }
+        
+        document.getElementById('methodologyNotes').innerHTML = methodologyHtml;
+        
+        // Display philological analysis
+        if (result.philological_analysis && result.philological_analysis.morphological_analysis) {
+            displayPhilologicalAnalysis(result.philological_analysis);
+        }
+        
+        // Handle alternatives - support both formats
+        const alternatives = result.alternative_translations || result.alternatives || [];
+        if (alternatives.length > 0) {
+            displayAlternatives(alternatives);
         } else {
             document.getElementById('alternativesSection').style.display = 'none';
         }
@@ -335,6 +644,57 @@ document.addEventListener('DOMContentLoaded', function() {
         // Show results
         resultsSection.style.display = 'block';
         resultsSection.scrollIntoView({ behavior: 'smooth' });
+    }
+    
+    function displayConfidence(type, value) {
+        const percentage = Math.round(value * 100);
+        document.getElementById(`${type}Confidence`).textContent = percentage + '%';
+        document.getElementById(`${type}ConfidenceFill`).style.width = percentage + '%';
+    }
+    
+    function displayPhilologicalAnalysis(analysis) {
+        if (!analysis.morphological_analysis || analysis.morphological_analysis.length === 0) {
+            return;
+        }
+        
+        const wordAnalysisHtml = analysis.morphological_analysis.map(word => `
+            <div class="word-item">
+                <div style="font-weight: bold; color: var(--accent-gold); margin-bottom: 0.5rem;">
+                    ${word.word} → ${word.lemma || 'Unknown'}
+                </div>
+                <div style="margin-bottom: 0.3rem;">
+                    <strong>Part of Speech:</strong> ${word.part_of_speech || 'Unknown'}
+                </div>
+                <div style="margin-bottom: 0.3rem;">
+                    <strong>Meaning:</strong> ${word.literal_meaning || word.contextual_meaning || 'Unknown'}
+                </div>
+                ${word.cultural_significance ? `<div style="font-size: 0.9rem; color: var(--text-muted); margin-top: 0.5rem;"><strong>Cultural Note:</strong> ${word.cultural_significance}</div>` : ''}
+            </div>
+        `).join('');
+        
+        document.getElementById('wordAnalysis').innerHTML = wordAnalysisHtml;
+        document.getElementById('analysisSection').style.display = 'block';
+    }
+    
+    function displayAlternatives(alternatives) {
+        const alternativesHtml = alternatives.map(alt => {
+            // Handle both formats: string array and object array
+            if (typeof alt === 'string') {
+                return `<div class="alternative-item"><div class="alternative-translation">${alt}</div></div>`;
+            } else {
+                return `
+                    <div class="alternative-item">
+                        <div class="alternative-translation">${alt.translation}</div>
+                        ${alt.rationale ? `<div class="alternative-notes"><strong>Rationale:</strong> ${alt.rationale}</div>` : ''}
+                        ${alt.usage_context ? `<div class="alternative-notes"><strong>Context:</strong> ${alt.usage_context}</div>` : ''}
+                        ${alt.confidence ? `<div class="alternative-notes"><strong>Confidence:</strong> ${Math.round(alt.confidence * 100)}%</div>` : ''}
+                    </div>
+                `;
+            }
+        }).join('');
+        
+        document.getElementById('alternativesList').innerHTML = alternativesHtml;
+        document.getElementById('alternativesSection').style.display = 'block';
     }
     
     function displayError(message) {
@@ -353,6 +713,41 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 2000);
         });
     });
+    
+    // Share functionality
+    document.getElementById('shareResult').addEventListener('click', function() {
+        const original = document.getElementById('originalText').textContent;
+        const translated = document.getElementById('resurrectedText').textContent;
+        const shareText = `Original: ${original}\nTranslation: ${translated}\n\nTranslated with MEDEA-NEUMOUSA Necromancer`;
+        
+        if (navigator.share) {
+            navigator.share({
+                title: 'Ancient Language Translation',
+                text: shareText
+            });
+        } else {
+            navigator.clipboard.writeText(shareText).then(() => {
+                this.textContent = '✅ Copied to Clipboard!';
+                setTimeout(() => {
+                    this.textContent = '🔗 Share Translation';
+                }, 2000);
+            });
+        }
+    });
 });
+
+// Analysis toggle function
+function toggleAnalysis() {
+    const content = document.getElementById('analysisContent');
+    const icon = document.getElementById('analysisToggleIcon');
+    
+    if (content.style.display === 'none' || content.style.display === '') {
+        content.style.display = 'block';
+        icon.textContent = '▲';
+    } else {
+        content.style.display = 'none';
+        icon.textContent = '▼';
+    }
+}
 </script>
 {% endblock %}

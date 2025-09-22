@@ -1,0 +1,2076 @@
+{% extends "base.html" %}
+
+{% block title %}Knowledge Graph Oracle - MEDEA-NEUMOUSA{% endblock %}
+
+{% block extra_head %}
+<!-- D3.js Library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+
+<style>
+    .kg-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+    
+    .mode-selector {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1rem;
+        margin: 2rem 0;
+    }
+    
+    .mode-card {
+        background: rgba(26, 31, 58, 0.3);
+        border: 2px solid var(--border-color);
+        border-radius: 10px;
+        padding: 1.5rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        position: relative;
+    }
+    
+    .mode-card:hover {
+        border-color: var(--accent-gold);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(212, 175, 55, 0.2);
+    }
+    
+    .mode-card.selected {
+        border-color: var(--accent-gold);
+        background: rgba(212, 175, 55, 0.1);
+    }
+    
+    .mode-card input[type="radio"] {
+        position: absolute;
+        opacity: 0;
+    }
+    
+    .mode-title {
+        color: var(--accent-gold);
+        font-size: 1.2rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+    
+    .mode-description {
+        color: var(--text-muted);
+        font-size: 0.9rem;
+        line-height: 1.4;
+    }
+    
+    .mode-features {
+        list-style: none;
+        padding: 0;
+        margin: 0.5rem 0 0 0;
+    }
+    
+    .mode-features li {
+        color: var(--text-primary);
+        font-size: 0.8rem;
+        margin: 0.2rem 0;
+    }
+    
+    .mode-features li:before {
+        content: "✓ ";
+        color: var(--accent-gold);
+        font-weight: bold;
+    }
+    
+    .options-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        margin: 2rem 0;
+    }
+    
+    .option-group {
+        background: rgba(26, 31, 58, 0.2);
+        border-radius: 8px;
+        padding: 1rem;
+        border: 1px solid var(--border-color);
+    }
+    
+    .option-group h4 {
+        color: var(--accent-bronze);
+        margin: 0 0 1rem 0;
+        font-size: 1rem;
+    }
+    
+    .checkbox-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .checkbox-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .checkbox-item input[type="checkbox"] {
+        accent-color: var(--accent-gold);
+    }
+    
+    .file-upload-area {
+        border: 2px dashed var(--border-color);
+        border-radius: 10px;
+        padding: 2rem;
+        text-align: center;
+        margin: 1rem 0;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .file-upload-area:hover,
+    .file-upload-area.dragover {
+        border-color: var(--accent-gold);
+        background: rgba(212, 175, 55, 0.05);
+    }
+    
+    .file-upload-area input[type="file"] {
+        display: none;
+    }
+    
+    .upload-icon {
+        font-size: 3rem;
+        color: var(--accent-gold);
+        margin-bottom: 1rem;
+    }
+    
+    .tab-buttons {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    .tab-button {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        padding: 1rem 1.5rem;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        transition: all 0.3s ease;
+        font-size: 1rem;
+    }
+    
+    .tab-button.active {
+        color: var(--accent-gold);
+        border-bottom-color: var(--accent-gold);
+    }
+    
+    .tab-content {
+        display: none;
+    }
+    
+    .tab-content.active {
+        display: block;
+    }
+    
+    .result-container {
+        background: rgba(26, 31, 58, 0.3);
+        border-radius: 10px;
+        padding: 2rem;
+        margin: 2rem 0;
+        border: 1px solid var(--border-color);
+    }
+    
+    .result-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    
+    .result-stats {
+        display: flex;
+        gap: 2rem;
+        font-size: 0.9rem;
+        color: var(--text-muted);
+        flex-wrap: wrap;
+    }
+    
+    .result-stat {
+        display: flex;
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .result-stat-value {
+        color: var(--accent-gold);
+        font-size: 1.2rem;
+        font-weight: bold;
+    }
+
+    /* Enhanced Results Tabs */
+    .result-tabs {
+        display: flex;
+        gap: 0.5rem;
+        margin: 1rem 0;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .result-tab {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        padding: 0.75rem 1rem;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        transition: all 0.3s ease;
+        font-size: 0.9rem;
+    }
+
+    .result-tab.active {
+        color: var(--accent-gold);
+        border-bottom-color: var(--accent-gold);
+    }
+
+    .result-tab-content {
+        display: none;
+        margin-top: 1rem;
+    }
+
+    .result-tab-content.active {
+        display: block;
+    }
+    
+    .rdf-output {
+        background: #0d1117;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 1rem;
+        font-family: 'Courier New', monospace;
+        font-size: 0.85rem;
+        line-height: 1.4;
+        overflow-x: auto;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    /* Entity and Relation Lists */
+    .entity-list, .relation-list {
+        display: grid;
+        gap: 0.5rem;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    .entity-item, .relation-item {
+        background: rgba(26, 31, 58, 0.5);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 1rem;
+        transition: all 0.3s ease;
+    }
+
+    .entity-item:hover, .relation-item:hover {
+        border-color: var(--accent-gold);
+        transform: translateY(-1px);
+    }
+
+    .entity-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+
+    .entity-label {
+        color: var(--accent-gold);
+        font-weight: 600;
+        font-size: 1rem;
+    }
+
+    .entity-type {
+        background: var(--accent-bronze);
+        color: var(--bg-primary);
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+    }
+
+    .entity-confidence {
+        color: var(--text-muted);
+        font-size: 0.8rem;
+    }
+
+    .relation-triple {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .relation-subject, .relation-object {
+        color: var(--accent-gold);
+        font-weight: 500;
+    }
+
+    .relation-predicate {
+        color: var(--accent-bronze);
+        font-style: italic;
+    }
+
+    .relation-arrow {
+        color: var(--text-muted);
+    }
+
+    /* Network Visualization Area */
+    .network-container {
+        background: rgba(26, 31, 58, 0.2);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 1rem;
+        min-height: 400px;
+        position: relative;
+    }
+
+    .network-placeholder {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 400px;
+        color: var(--text-muted);
+        text-align: center;
+    }
+
+     .network-placeholder svg {
+        width: 100px;
+        height: 100px;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+/* Add these styles to your existing CSS section */
+
+/* Coherence Analysis Styles */
+    .coherence-section {
+        background: rgba(212, 175, 55, 0.1);
+        border: 1px solid var(--accent-gold);
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+    }
+
+    .coherence-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+        color: var(--accent-gold);
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+
+    .coherence-score {
+        font-size: 2rem;
+        font-weight: bold;
+        color: var(--accent-gold);
+        text-align: center;
+        margin: 1rem 0;
+    }
+
+    .coherence-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        margin: 1rem 0;
+    }
+
+    .coherence-metric {
+        background: rgba(26, 31, 58, 0.3);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 1rem;
+        text-align: center;
+    }
+
+    .coherence-metric-value {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: var(--accent-bronze);
+    }
+
+    .coherence-metric-label {
+        font-size: 0.9rem;
+        color: var(--text-muted);
+        margin-top: 0.5rem;
+    }
+
+    .contradiction-list {
+        background: rgba(233, 69, 96, 0.1);
+        border: 1px solid var(--text-accent);
+        border-radius: 8px;
+        padding: 1rem;
+        margin: 1rem 0;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    .contradiction-item {
+        background: rgba(26, 31, 58, 0.5);
+        border-radius: 6px;
+        padding: 0.75rem;
+        margin: 0.5rem 0;
+        border-left: 3px solid var(--text-accent);
+    }
+
+    .contradiction-type {
+        color: var(--text-accent);
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    .contradiction-description {
+        color: var(--text-primary);
+        margin: 0.5rem 0;
+        font-size: 0.9rem;
+    }
+
+    .contradiction-entities {
+        color: var(--text-muted);
+        font-size: 0.8rem;
+        font-style: italic;
+    }
+
+    .narrative-flow {
+        background: rgba(26, 31, 58, 0.2);
+        border-radius: 8px;
+        padding: 1rem;
+        margin: 1rem 0;
+    }
+
+    .narrative-flow h5 {
+        color: var(--accent-bronze);
+        margin: 0 0 0.5rem 0;
+    }
+
+    .flow-metric {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin: 0.3rem 0;
+        padding: 0.3rem 0;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .flow-metric:last-child {
+        border-bottom: none;
+    }
+
+    .flow-label {
+        color: var(--text-muted);
+        font-size: 0.9rem;
+    }
+
+    .flow-value {
+        color: var(--accent-gold);
+        font-weight: 600;
+    }
+
+    .consistency-bars {
+        margin: 1rem 0;
+    }
+
+    .consistency-bar {
+        display: flex;
+        align-items: center;
+        margin: 0.5rem 0;
+    }
+
+    .consistency-label {
+        min-width: 120px;
+        color: var(--text-muted);
+        font-size: 0.9rem;
+    }
+
+    .consistency-progress {
+        flex: 1;
+        height: 8px;
+        background: rgba(26, 31, 58, 0.5);
+        border-radius: 4px;
+        margin: 0 1rem;
+        overflow: hidden;
+    }
+
+    .consistency-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--text-accent), var(--accent-bronze), var(--accent-gold));
+        border-radius: 4px;
+        transition: width 0.3s ease;
+    }
+
+    .consistency-score {
+        min-width: 40px;
+        color: var(--accent-gold);
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    .coherence-unavailable {
+        text-align: center;
+        color: var(--text-muted);
+        font-style: italic;
+        padding: 2rem;
+    }
+    /* Summary Stats */
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        margin: 1rem 0;
+    }
+
+    .summary-card {
+        background: rgba(26, 31, 58, 0.3);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 1rem;
+    }
+
+    .summary-card h4 {
+        color: var(--accent-bronze);
+        margin: 0 0 0.5rem 0;
+        font-size: 0.9rem;
+    }
+
+    .summary-value {
+        color: var(--accent-gold);
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    .summary-label {
+        color: var(--text-muted);
+        font-size: 0.8rem;
+    }
+    
+    .download-buttons {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1rem;
+        flex-wrap: wrap;
+    }
+    
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+    
+    .loading-content {
+        background: var(--card-bg);
+        padding: 2rem;
+        border-radius: 10px;
+        text-align: center;
+        border: 1px solid var(--accent-gold);
+    }
+    
+    .loading-spinner {
+        width: 50px;
+        height: 50px;
+        border: 3px solid var(--border-color);
+        border-top: 3px solid var(--accent-gold);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 1rem;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .error-message {
+        background: rgba(233, 69, 96, 0.1);
+        border: 1px solid var(--text-accent);
+        border-radius: 8px;
+        padding: 1rem;
+        color: var(--text-accent);
+        margin: 1rem 0;
+    }
+    
+    .success-message {
+        background: rgba(0, 255, 0, 0.1);
+        border: 1px solid #00ff00;
+        border-radius: 8px;
+        padding: 1rem;
+        color: #00ff00;
+        margin: 1rem 0;
+    }
+
+    /* Enhanced Options */
+    .enhanced-options {
+        background: rgba(212, 175, 55, 0.1);
+        border: 1px solid var(--accent-gold);
+        border-radius: 8px;
+        padding: 1rem;
+        margin: 1rem 0;
+    }
+
+    .enhanced-options h4 {
+        color: var(--accent-gold);
+        margin: 0 0 1rem 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="kg-container">
+    <div style="text-align: center; margin-bottom: 3rem;">
+        <h1 style="font-size: 3rem; margin-bottom: 1rem;">🕸️ Knowledge Graph Oracle</h1>
+        <p style="font-size: 1.3rem; color: var(--text-muted); font-style: italic;">
+            "Ἡ Μήδεια γνῶσιν εἰς δίκτυα μεταμορφοῖ"<br>
+            <span style="font-size: 1rem;">"Medea transforms knowledge into networks"</span>
+        </p>
+        <p style="color: var(--text-primary); margin-top: 1rem;">
+            Transform ancient texts into structured RDF knowledge graphs with enhanced semantic network analysis
+        </p>
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="tab-buttons">
+        <button class="tab-button active" onclick="switchTab('text-input')">📝 Text Input</button>
+        <button class="tab-button" onclick="switchTab('file-upload')">📁 File Upload</button>
+        <button class="tab-button" onclick="switchTab('examples')">📚 Examples</button>
+    </div>
+
+    <!-- Text Input Tab -->
+    <div id="text-input" class="tab-content active">
+        <form id="kgForm">
+            <!-- Extraction Mode Selection -->
+            <div>
+                <h3 style="color: var(--accent-gold); margin-bottom: 1rem;">🔮 Extraction Mode</h3>
+                <div class="mode-selector">
+                    <label class="mode-card selected">
+                        <input type="radio" name="mode" value="basic" checked>
+                        <div class="mode-title">⚡ Basic Extraction</div>
+                        <div class="mode-description">Standard knowledge extraction using linguistic patterns</div>
+                        <ul class="mode-features">
+                            <li>Entity recognition</li>
+                            <li>Event extraction</li>
+                            <li>Relationship mapping</li>
+                            <li>Basic semantic network</li>
+                        </ul>
+                    </label>
+
+                    <label class="mode-card">
+                        <input type="radio" name="mode" value="rag_enhanced">
+                        <div class="mode-title">🧠 RAG-Enhanced</div>
+                        <div class="mode-description">Enhanced with entity analysis and context awareness</div>
+                        <ul class="mode-features">
+                            <li>Advanced entity recognition</li>
+                            <li>Context-aware extraction</li>
+                            <li>Enhanced clustering</li>
+                            <li>Improved accuracy</li>
+                        </ul>
+                    </label>
+
+                    <label class="mode-card">
+                        <input type="radio" name="mode" value="external_enriched">
+                        <div class="mode-title">🌐 External Enriched</div>
+                        <div class="mode-description">Enriched with external knowledge sources</div>
+                        <ul class="mode-features">
+                            <li>Wikidata integration</li>
+                            <li>Enhanced entity info</li>
+                            <li>Cross-reference validation</li>
+                            <li>Comprehensive networks</li>
+                        </ul>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Enhanced Options -->
+            <div class="enhanced-options">
+                <h4>✨ Enhanced Analysis Options</h4>
+                <div class="checkbox-group">
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="include_semantic_network" checked>
+                        <span>Include Semantic Network Analysis</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="include_visualization_data" checked>
+                        <span>Include Visualization Data</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Options -->
+            <div class="options-grid">
+                <div class="option-group">
+                    <h4>🎯 Extraction Options</h4>
+                    <div class="checkbox-group">
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="extract_entities" checked>
+                            <span>Extract Entities (persons, deities)</span>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="extract_locations" checked>
+                            <span>Extract Locations (cities, regions)</span>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="extract_temporal" checked>
+                            <span>Extract Temporal (dates, periods)</span>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="use_external_sources">
+                            <span>Use External Sources</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="option-group">
+                    <h4>📄 Output Format</h4>
+                    <select name="output_format" class="form-select">
+                        <option value="turtle">Turtle (.ttl)</option>
+                        <option value="rdf_xml">RDF/XML (.rdf)</option>
+                        <option value="n3">Notation3 (.n3)</option>
+                        <option value="json_ld">JSON-LD (.json)</option>
+                    </select>
+                </div>
+
+                <div class="option-group">
+                    <h4>⚙️ Processing</h4>
+                    <label style="display: block; margin-bottom: 0.5rem;">
+                        <span style="color: var(--text-muted);">Chunk Size:</span>
+                        <input type="range" name="chunk_size" min="5000" max="30000" value="15000" 
+                               style="width: 100%; margin-top: 0.5rem;"
+                               oninput="document.getElementById('chunkSizeValue').textContent = this.value">
+                    </label>
+                    <div style="text-align: center; color: var(--accent-gold);">
+                        <span id="chunkSizeValue">15000</span> characters
+                    </div>
+                </div>
+            </div>
+
+            <!-- Text Input -->
+            <div class="form-group">
+                <label class="form-label" for="inputText">📜 Ancient Text for Knowledge Extraction</label>
+                <textarea 
+                    id="inputText" 
+                    name="text" 
+                    class="form-textarea" 
+                    rows="10"
+                    placeholder="Enter your ancient text here...
+
+Examples:
+• Historical chronicles and narratives
+• Ancient inscriptions and documents  
+• Classical literary texts
+• Archaeological findings
+• Medieval manuscripts
+
+The enhanced system will extract entities, events, relationships, temporal/spatial information and create a comprehensive semantic network analysis."
+                    required
+                ></textarea>
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">
+                    Minimum 50 characters for meaningful extraction
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <div style="text-align: center; margin: 2rem 0;">
+                <button type="submit" class="btn">
+                    🕸️ Transform to Knowledge Graph
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- File Upload Tab -->
+    <div id="file-upload" class="tab-content">
+        <form id="fileForm" enctype="multipart/form-data">
+            <div class="file-upload-area" onclick="document.getElementById('fileInput').click()">
+                <div class="upload-icon">📁</div>
+                <h3 style="color: var(--accent-gold); margin-bottom: 0.5rem;">Upload Ancient Text File</h3>
+                <p style="color: var(--text-muted);">
+                    Click to select or drag & drop a text file<br>
+                    <small>Supported: .txt, .md, .rtf (max 500k characters)</small>
+                </p>
+                <input type="file" id="fileInput" name="file" accept=".txt,.md,.rtf,text/*">
+            </div>
+            
+            <div id="fileInfo" style="display: none; margin: 1rem 0; padding: 1rem; background: rgba(212, 175, 55, 0.1); border-radius: 8px;">
+                <strong>Selected File:</strong> <span id="fileName"></span><br>
+                <strong>Size:</strong> <span id="fileSize"></span>
+            </div>
+
+            <!-- Same options as text input -->
+            <div class="options-grid">
+                <div class="option-group">
+                    <h4>🔮 Extraction Mode</h4>
+                    <select name="mode" class="form-select">
+                        <option value="basic">⚡ Basic Extraction</option>
+                        <option value="rag_enhanced">🧠 RAG-Enhanced</option>
+                        <option value="external_enriched">🌐 External Enriched</option>
+                    </select>
+                </div>
+                
+                <div class="option-group">
+                    <h4>📄 Export Format</h4>
+                    <select name="export_format" class="form-select">
+                        <option value="json">📊 Complete JSON (Structured Data)</option>
+                        <option value="csv">📋 CSV (Tabular Data)</option>
+                        <option value="rdf">🔗 RDF (Knowledge Graph)</option>
+                        <option value="report">📄 Analysis Report</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="text-align: center; margin: 2rem 0;">
+                <button type="submit" class="btn" disabled id="fileSubmitBtn">
+                    🕸️ Extract from File
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Examples Tab -->
+    <div id="examples" class="tab-content">
+        <h3 style="color: var(--accent-gold); margin-bottom: 2rem;">📚 Enhanced Knowledge Graph Examples</h3>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 2rem;">
+            <div class="example-card card">
+                <h4 style="color: var(--accent-bronze);">🏛️ Roman Battle</h4>
+                <div class="example-text" style="background: rgba(26, 31, 58, 0.3); padding: 1rem; border-radius: 8px; margin: 1rem 0; font-style: italic;">
+                    "In the year 31 BC, Augustus defeated Mark Antony at the Battle of Actium. This victory established Augustus as the first Roman Emperor and ended the Roman Republic."
+                </div>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">
+                    Expected: 5 entities, 8 relations, battle-centered network
+                </p>
+                <button class="btn btn-secondary" onclick="loadExample('roman-battle')">
+                    Load Example
+                </button>
+            </div>
+
+            <div class="example-card card">
+                <h4 style="color: var(--accent-bronze);">📚 Greek Philosophy</h4>
+                <div class="example-text" style="background: rgba(26, 31, 58, 0.3); padding: 1rem; border-radius: 8px; margin: 1rem 0; font-style: italic;">
+                    "Socrates taught Plato in Athens. Plato founded the Academy around 387 BC. Aristotle was a student of Plato and later tutored Alexander the Great."
+                </div>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">
+                    Expected: 6 entities, 10 relations, teacher-student clusters
+                </p>
+                <button class="btn btn-secondary" onclick="loadExample('greek-philosophy')">
+                    Load Example
+                </button>
+            </div>
+        </div>
+
+        <div style="margin-top: 3rem;">
+            <h4 style="color: var(--accent-gold);">💡 Tips for Better Extraction</h4>
+            <ul style="color: var(--text-primary); line-height: 1.6;">
+                <li><strong>Include specific dates and places</strong> - "31 BC at Actium" vs "long ago"</li>
+                <li><strong>Use proper names</strong> - "Augustus" vs "the emperor"</li>
+                <li><strong>Describe relationships clearly</strong> - "X defeated Y" vs "there was a battle"</li>
+                <li><strong>Provide context</strong> - Include background information for better understanding</li>
+                <li><strong>Use complete sentences</strong> - Fragments are harder to process accurately</li>
+                <li><strong>Enable semantic network analysis</strong> - Get insights into entity relationships and clusters</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Enhanced Results Section -->
+    <div id="resultsSection" style="display: none;">
+        <div class="result-container">
+            <div class="result-header">
+                <h3 style="color: var(--accent-gold); margin: 0;">🕸️ Knowledge Graph Extracted</h3>
+                <div class="result-stats">
+                    <div class="result-stat">
+                        <div class="result-stat-value" id="entityCount">0</div>
+                        <div>Entities</div>
+                    </div>
+                    <div class="result-stat">
+                        <div class="result-stat-value" id="tripleCount">0</div>
+                        <div>Relations</div>
+                    </div>
+                    <div class="result-stat">
+                        <div class="result-stat-value" id="confidenceScore">0%</div>
+                        <div>Confidence</div>
+                    </div>
+                    <div class="result-stat">
+                        <div class="result-stat-value" id="processingTime">0s</div>
+                        <div>Time</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="extractionNotes" style="color: var(--text-muted); margin-bottom: 1rem;"></div>
+
+            <!-- Enhanced Result Tabs -->
+            <!-- Find the result-tabs div and update it to include the coherence tab -->
+            <div class="result-tabs">
+                <button class="result-tab active" onclick="switchResultTab('summary')">📊 Summary</button>
+                <button class="result-tab" onclick="switchResultTab('entities')">👥 Entities</button>
+                <button class="result-tab" onclick="switchResultTab('relations')">🔗 Relations</button>
+                <button class="result-tab" onclick="switchResultTab('coherence')">🧠 Coherence</button>
+                <button class="result-tab" onclick="switchResultTab('network')">🕸️ Network</button>
+                <button class="result-tab" onclick="switchResultTab('rdf')">📄 RDF</button>
+            </div>
+
+            <!-- Summary Tab -->
+            <div id="summary-tab" class="result-tab-content active">
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <h4>📈 Network Metrics</h4>
+                        <div class="summary-value" id="networkDensity">0.0</div>
+                        <div class="summary-label">Network Density</div>
+                    </div>
+                    <div class="summary-card">
+                        <h4>🎯 Key Entities</h4>
+                        <div id="keyEntitiesList" style="font-size: 0.9rem; color: var(--text-primary);"></div>
+                    </div>
+                    <div class="summary-card">
+                        <h4>🏷️ Entity Types</h4>
+                        <div id="entityTypesChart" style="font-size: 0.9rem; color: var(--text-primary);"></div>
+                    </div>
+                    <div class="summary-card">
+                        <h4>🔗 Relation Types</h4>
+                        <div id="relationTypesChart" style="font-size: 0.9rem; color: var(--text-primary);"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Entities Tab -->
+            <div id="entities-tab" class="result-tab-content">
+                <div id="entitiesList" class="entity-list">
+                    <!-- Entities will be populated here -->
+                </div>
+            </div>
+
+            <!-- Relations Tab -->
+            <div id="relations-tab" class="result-tab-content">
+                <div id="relationsList" class="relation-list">
+                    <!-- Relations will be populated here -->
+                </div>
+            </div>
+
+            <!-- Network Tab -->
+            <div id="network-tab" class="result-tab-content">
+                <div class="network-container">
+                    <div id="networkVisualization">
+                        <!-- Network controls -->
+                        <div style="margin-bottom: 1rem; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                            <label style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-muted);">
+                                <span>Node Size:</span>
+                                <input type="range" id="nodeSizeSlider" min="5" max="50" value="20" style="width: 100px;">
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-muted);">
+                                <span>Link Distance:</span>
+                                <input type="range" id="linkDistanceSlider" min="50" max="300" value="150" style="width: 100px;">
+                            </label>
+                            <button id="resetNetworkBtn" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.8rem;">
+                                🔄 Reset View
+                            </button>
+                            <button id="pauseSimulationBtn" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.8rem;">
+                                ⏸️ Pause
+                            </button>
+                        </div>
+                        
+                        <!-- SVG container for D3.js -->
+                        <svg id="networkSvg" width="100%" height="500" style="border: 1px solid var(--border-color); border-radius: 8px; background: rgba(26, 31, 58, 0.1);">
+                            <!-- D3.js will render here -->
+                        </svg>
+                        
+                        <!-- Network info panel -->
+                        <div id="networkInfo" style="margin-top: 1rem; padding: 1rem; background: rgba(26, 31, 58, 0.3); border-radius: 8px; display: none;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                                <h4 style="color: var(--accent-gold); margin: 0;">Selected Node</h4>
+                                <button onclick="hideNetworkInfo()" style="background: none; border: none; color: var(--text-muted); cursor: pointer;">✕</button>
+                            </div>
+                            <div id="nodeDetails"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RDF Tab -->
+            <div id="rdf-tab" class="result-tab-content">
+                <div class="rdf-output" id="rdfOutput"></div>
+            </div>
+<!-- Add this new tab content after your existing tab contents -->
+<!-- Coherence Tab -->
+            <div id="coherence-tab" class="result-tab-content">
+                <div id="coherenceAnalysis">
+                    <!-- Coherence content will be populated here by JavaScript -->
+                </div>
+            </div>
+            
+            <div class="download-buttons">
+                <button class="btn btn-secondary" id="downloadRDFBtn">
+                    💾 Download RDF
+                </button>
+                <button class="btn btn-secondary" id="downloadJSONBtn">
+                    📊 Download JSON
+                </button>
+                <button class="btn btn-secondary" id="downloadCSVBtn">
+                    📋 Download CSV
+                </button>
+                <button class="btn btn-secondary" id="copyBtn">
+                    📋 Copy RDF
+                </button>
+                <button class="btn btn-secondary" onclick="document.getElementById('kgForm').scrollIntoView()">
+                    🔄 Extract Another
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Section -->
+    <div id="errorSection" style="display: none;">
+        <div class="error-message">
+            <h3>💀 Knowledge Extraction Failed</h3>
+            <p id="errorMessage"></p>
+            <button class="btn" onclick="hideError()" style="margin-top: 1rem;">
+                🔄 Try Again
+            </button>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <h3 style="color: var(--accent-gold); margin-bottom: 0.5rem;">🕸️ Extracting Knowledge Graph</h3>
+            <p style="color: var(--text-muted);">
+                The Oracle is analyzing your ancient text and weaving knowledge into networks...
+            </p>
+            <div id="loadingProgress" style="color: var(--accent-bronze); margin-top: 1rem;"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentResult = null; // Store the current extraction result
+let networkSimulation = null; // Store D3 simulation
+let networkData = null; // Store network data
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Mode selector functionality
+    document.querySelectorAll('.mode-card').forEach(card => {
+        card.addEventListener('click', function() {
+            document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
+            this.classList.add('selected');
+            this.querySelector('input[type="radio"]').checked = true;
+        });
+    });
+
+    // File upload functionality
+    const fileInput = document.getElementById('fileInput');
+    const fileInfo = document.getElementById('fileInfo');
+    const fileSubmitBtn = document.getElementById('fileSubmitBtn');
+    const uploadArea = document.querySelector('.file-upload-area');
+
+    fileInput.addEventListener('change', handleFileSelect);
+
+    // Drag and drop
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+    });
+
+    uploadArea.addEventListener('dragleave', () => {
+        uploadArea.classList.remove('dragover');
+    });
+
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            fileInput.files = files;
+            handleFileSelect();
+        }
+    });
+
+    function handleFileSelect() {
+        const file = fileInput.files[0];
+        if (file) {
+            document.getElementById('fileName').textContent = file.name;
+            document.getElementById('fileSize').textContent = formatFileSize(file.size);
+            fileInfo.style.display = 'block';
+            fileSubmitBtn.disabled = false;
+        }
+    }
+
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    // Form submissions
+    document.getElementById('kgForm').addEventListener('submit', handleTextSubmission);
+    document.getElementById('fileForm').addEventListener('submit', handleFileSubmission);
+
+    async function handleTextSubmission(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        const data = {
+            text: formData.get('text'),
+            mode: formData.get('mode'),
+            use_external_sources: formData.get('use_external_sources') === 'on',
+            output_format: formData.get('output_format'),
+            chunk_size: parseInt(formData.get('chunk_size')),
+            extract_locations: formData.get('extract_locations') === 'on',
+            extract_temporal: formData.get('extract_temporal') === 'on',
+            extract_entities: formData.get('extract_entities') === 'on',
+            include_semantic_network: formData.get('include_semantic_network') === 'on',
+            include_visualization_data: formData.get('include_visualization_data') === 'on'
+        };
+
+        if (data.text.trim().length < 50) {
+            showError('Text too short. Please provide at least 50 characters for meaningful extraction.');
+            return;
+        }
+
+        showLoading('Analyzing text and extracting semantic networks...');
+        hideError();
+        hideResults();
+
+        try {
+            const response = await fetch('/api/v1/kg/extract', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                let errorMessage;
+                try {
+                    const errorJson = JSON.parse(errorText);
+                    errorMessage = errorJson.detail || `Server error: ${response.status}`;
+                } catch {
+                    errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                }
+                showError(errorMessage);
+                return;
+            }
+
+            const result = await response.json();
+            console.log('=== FULL API RESPONSE ===');
+            console.log(result);
+            console.log('=== COHERENCE ANALYSIS DEBUG ===');
+            console.log('coherence_analysis exists:', 'coherence_analysis' in result);
+            console.log('coherence_analysis value:', result.coherence_analysis);
+            console.log('coherence_analysis type:', typeof result.coherence_analysis);
+
+            // Check if it's nested somewhere else
+            console.log('=== CHECKING OTHER FIELDS ===');
+            console.log('Available fields:', Object.keys(result));
+
+            // Also check inside summary or other objects
+            if (result.summary) {
+                console.log('Summary fields:', Object.keys(result.summary));
+            }
+
+currentResult = result;
+displayEnhancedResults(result);
+        } catch (error) {
+            console.error('API Error:', error);
+            if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                showError('Failed to connect to the Knowledge Graph Oracle. Please check that the server is running and accessible.');
+            } else {
+                showError(`Network error: ${error.message}. Please try again.`);
+            }
+        } finally {
+            hideLoading();
+        }
+    }
+
+    async function handleFileSubmission(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        
+        if (!fileInput.files[0]) {
+            showError('Please select a file to upload.');
+            return;
+        }
+
+        showLoading('Uploading file and extracting enhanced knowledge...');
+        hideError();
+        hideResults();
+
+        try {
+            const response = await fetch('/api/v1/kg/extract-file', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                // File download response
+                const blob = await response.blob();
+                const filename = response.headers.get('Content-Disposition')?.split('filename=')[1] || 'knowledge_graph.ttl';
+                
+                downloadBlob(blob, filename);
+                
+                // Show success message with enhanced stats from headers
+                const entityCount = response.headers.get('X-Entity-Count') || '0';
+                const tripleCount = response.headers.get('X-Triple-Count') || '0';
+                const confidence = response.headers.get('X-Confidence-Score') || '0';
+                const processingTime = response.headers.get('X-Processing-Time') || '0';
+                const networkDensity = response.headers.get('X-Network-Density') || '0';
+                
+                showSuccess(`Enhanced knowledge graph extracted successfully!<br>
+                    Entities: ${entityCount}, Relations: ${tripleCount}<br>
+                    Confidence: ${(parseFloat(confidence) * 100).toFixed(1)}%<br>
+                    Network Density: ${parseFloat(networkDensity).toFixed(3)}<br>
+                    Processing Time: ${parseFloat(processingTime).toFixed(1)}s<br>
+                    File downloaded: ${filename}`);
+            } else {
+                const result = await response.json();
+                showError(result.detail || 'File extraction failed');
+            }
+        } catch (error) {
+            showError('Failed to process file. Please try again.');
+        } finally {
+            hideLoading();
+        }
+    }
+
+    function displayEnhancedResults(result) {
+        // Basic stats
+        document.getElementById('entityCount').textContent = result.entity_count;
+        document.getElementById('tripleCount').textContent = result.triple_count;
+        document.getElementById('confidenceScore').textContent = Math.round(result.confidence_score * 100) + '%';
+        document.getElementById('processingTime').textContent = result.processing_time.toFixed(1) + 's';
+        document.getElementById('extractionNotes').textContent = result.extraction_notes;
+        document.getElementById('rdfOutput').textContent = result.rdf_content;
+
+        // Enhanced summary data
+        if (result.summary) {
+            displaySummary(result.summary);
+        }
+
+        // Display entities
+        if (result.entities) {
+            displayEntities(result.entities);
+        }
+
+        // Display relations
+        if (result.relations) {
+            displayRelations(result.relations);
+        }
+
+        // Display coherence analysis
+        if (result.coherence_analysis) {
+            displayCoherenceAnalysis(result.coherence_analysis);
+            // Also update summary with coherence info
+            updateSummaryWithCoherence(result.summary, result.coherence_analysis);
+        } else {
+            // Show unavailable message if no coherence data
+            displayCoherenceAnalysis(null);
+        }
+
+        // Display network visualization
+        if (result.semantic_network || result.visualization_data) {
+            displayNetworkVisualization(result);
+        }
+
+        // Setup enhanced download functionality
+        setupDownloadButtons(result);
+
+        document.getElementById('resultsSection').style.display = 'block';
+        document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function displayNetworkVisualization(result) {
+        // Prepare network data from the API response
+        let nodes = [];
+        let links = [];
+
+        if (result.visualization_data && result.visualization_data.network) {
+            nodes = result.visualization_data.network.nodes || [];
+            links = result.visualization_data.network.links || [];
+        } else if (result.semantic_network) {
+            // Fallback to semantic_network data
+            nodes = result.semantic_network.nodes || [];
+            links = result.semantic_network.edges || [];
+        } else {
+            // Create minimal network from entities and relations
+            nodes = result.entities ? result.entities.map(entity => ({
+                id: entity.id,
+                label: entity.label,
+                type: entity.type,
+                size: 20,
+                color: getEntityColor(entity.type),
+                group: entity.type.split(':').pop()
+            })) : [];
+
+            links = result.relations ? result.relations.map(relation => ({
+                source: relation.subject,
+                target: relation.object,
+                label: relation.predicate.split(':').pop(),
+                weight: relation.confidence,
+                color: '#7f8c8d'
+            })) : [];
+        }
+
+        networkData = { nodes, links };
+        renderNetworkVisualization(networkData);
+    }
+
+    function getEntityColor(entityType) {
+        const colorMap = {
+            'Person': '#e74c3c',
+            'Event': '#3498db', 
+            'Location': '#2ecc71',
+            'PoliticalEntity': '#f39c12',
+            'Battle': '#9b59b6',
+            'Emperor': '#e67e22',
+            'General': '#c0392b',
+            'Place': '#27ae60'
+        };
+        const type = entityType.split(':').pop();
+        return colorMap[type] || '#95a5a6';
+    }
+
+    function renderNetworkVisualization(data) {
+        const svg = d3.select('#networkSvg');
+        const svgNode = svg.node();
+        const width = svgNode ? svgNode.getBoundingClientRect().width : 800;
+        const height = parseInt(svg.attr('height')) || 500;
+
+        // Clear previous content
+        svg.selectAll('*').remove();
+
+        if (!data.nodes || data.nodes.length === 0) {
+            // Show placeholder if no data
+            const g = svg.append('g')
+                .attr('transform', `translate(${width/2}, ${height/2})`);
+            
+            g.append('text')
+                .attr('text-anchor', 'middle')
+                .attr('fill', '#95a5a6')
+                .attr('font-size', '18px')
+                .text('🕸️ No network data available');
+            
+            g.append('text')
+                .attr('text-anchor', 'middle')
+                .attr('y', 30)
+                .attr('fill', '#95a5a6')
+                .attr('font-size', '14px')
+                .text('Try using semantic network analysis options');
+            
+            return;
+        }
+
+        // Ensure nodes have required properties
+        data.nodes.forEach(node => {
+            if (!node.size) node.size = 20;
+            if (!node.color) node.color = '#95a5a6';
+        });
+
+        // Ensure links have required properties
+        data.links.forEach(link => {
+            if (!link.weight) link.weight = 1;
+            if (!link.color) link.color = '#7f8c8d';
+        });
+
+        // Create zoom behavior
+        const zoom = d3.zoom()
+            .scaleExtent([0.1, 4])
+            .on('zoom', (event) => {
+                g.attr('transform', event.transform);
+            });
+
+        svg.call(zoom);
+
+        // Create main group for zoomable content
+        const g = svg.append('g');
+
+        // Create arrow markers for directed edges
+        svg.append('defs').selectAll('marker')
+            .data(['arrow'])
+            .enter().append('marker')
+            .attr('id', d => d)
+            .attr('viewBox', '0 -5 10 10')
+            .attr('refX', 25)
+            .attr('refY', 0)
+            .attr('markerWidth', 6)
+            .attr('markerHeight', 6)
+            .attr('orient', 'auto')
+            .append('path')
+            .attr('d', 'M0,-5L10,0L0,5')
+            .attr('fill', '#7f8c8d');
+
+        // Create force simulation
+        networkSimulation = d3.forceSimulation(data.nodes)
+            .force('link', d3.forceLink(data.links).id(d => d.id).distance(150))
+            .force('charge', d3.forceManyBody().strength(-300))
+            .force('center', d3.forceCenter(width / 2, height / 2))
+            .force('collision', d3.forceCollide().radius(d => (d.size || 20) + 5));
+
+        // Create links
+        const link = g.append('g')
+            .attr('class', 'links')
+            .selectAll('line')
+            .data(data.links)
+            .enter().append('line')
+            .attr('stroke', d => d.color || '#7f8c8d')
+            .attr('stroke-opacity', 0.8)
+            .attr('stroke-width', d => Math.sqrt(d.weight || 1) * 2)
+            .attr('marker-end', 'url(#arrow)');
+
+        // Create link labels
+        const linkLabel = g.append('g')
+            .attr('class', 'link-labels')
+            .selectAll('text')
+            .data(data.links)
+            .enter().append('text')
+            .attr('text-anchor', 'middle')
+            .attr('font-size', '10px')
+            .attr('fill', '#95a5a6')
+            .attr('pointer-events', 'none')
+            .text(d => d.label || '');
+
+        // Create nodes
+        const node = g.append('g')
+            .attr('class', 'nodes')
+            .selectAll('circle')
+            .data(data.nodes)
+            .enter().append('circle')
+            .attr('r', d => d.size || 20)
+            .attr('fill', d => d.color || '#95a5a6')
+            .attr('stroke', '#ffffff')
+            .attr('stroke-width', 2)
+            .style('cursor', 'pointer')
+            .call(d3.drag()
+                .on('start', dragstarted)
+                .on('drag', dragged)
+                .on('end', dragended))
+            .on('click', (event, d) => showNodeDetails(d))
+            .on('mouseover', function(event, d) {
+                d3.select(this)
+                    .transition()
+                    .duration(200)
+                    .attr('r', (d.size || 20) * 1.2)
+                    .attr('stroke-width', 3);
+            })
+            .on('mouseout', function(event, d) {
+                d3.select(this)
+                    .transition()
+                    .duration(200)
+                    .attr('r', d.size || 20)
+                    .attr('stroke-width', 2);
+            });
+
+        // Create node labels
+        const nodeLabel = g.append('g')
+            .attr('class', 'node-labels')
+            .selectAll('text')
+            .data(data.nodes)
+            .enter().append('text')
+            .attr('text-anchor', 'middle')
+            .attr('dy', '.35em')
+            .attr('font-size', '12px')
+            .attr('font-weight', 'bold')
+            .attr('fill', '#ffffff')
+            .attr('pointer-events', 'none')
+            .text(d => (d.label && d.label.length > 12) ? d.label.substring(0, 12) + '...' : (d.label || d.id));
+
+        // Update positions on simulation tick
+        networkSimulation.on('tick', () => {
+            link
+                .attr('x1', d => d.source.x)
+                .attr('y1', d => d.source.y)
+                .attr('x2', d => d.target.x)
+                .attr('y2', d => d.target.y);
+
+            linkLabel
+                .attr('x', d => (d.source.x + d.target.x) / 2)
+                .attr('y', d => (d.source.y + d.target.y) / 2);
+
+            node
+                .attr('cx', d => d.x)
+                .attr('cy', d => d.y);
+
+            nodeLabel
+                .attr('x', d => d.x)
+                .attr('y', d => d.y);
+        });
+
+        // Drag functions
+        function dragstarted(event, d) {
+            if (!event.active) networkSimulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+
+        function dragended(event, d) {
+            if (!event.active) networkSimulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }
+
+        // Setup network controls
+        setupNetworkControls();
+    }
+
+    function setupNetworkControls() {
+        // Node size control
+        document.getElementById('nodeSizeSlider').addEventListener('input', function() {
+            const scale = this.value / 20; // Default is 20
+            d3.selectAll('#networkSvg .nodes circle')
+                .attr('r', d => (d.size || 20) * scale);
+            
+            d3.selectAll('#networkSvg .node-labels text')
+                .attr('font-size', `${12 * scale}px`);
+        });
+
+        // Link distance control
+        document.getElementById('linkDistanceSlider').addEventListener('input', function() {
+            if (networkSimulation) {
+                networkSimulation.force('link').distance(this.value);
+                networkSimulation.alpha(0.3).restart();
+            }
+        });
+
+        // Reset view button
+        document.getElementById('resetNetworkBtn').addEventListener('click', function() {
+            const svg = d3.select('#networkSvg');
+            const zoom = d3.zoom();
+            svg.transition().duration(750).call(
+                zoom.transform,
+                d3.zoomIdentity
+            );
+            
+            if (networkSimulation) {
+                networkSimulation.alpha(0.3).restart();
+            }
+        });
+
+        // Pause/resume simulation
+        let simulationPaused = false;
+        document.getElementById('pauseSimulationBtn').addEventListener('click', function() {
+            if (networkSimulation) {
+                if (simulationPaused) {
+                    networkSimulation.restart();
+                    this.textContent = '⏸️ Pause';
+                } else {
+                    networkSimulation.stop();
+                    this.textContent = '▶️ Resume';
+                }
+                simulationPaused = !simulationPaused;
+            }
+        });
+    }
+
+    function showNodeDetails(nodeData) {
+        const info = document.getElementById('networkInfo');
+        const details = document.getElementById('nodeDetails');
+        
+        // Find the corresponding entity data
+        let entityData = null;
+        if (currentResult && currentResult.entities) {
+            entityData = currentResult.entities.find(e => e.id === nodeData.id);
+        }
+        
+        let detailsHTML = `
+            <div style="margin-bottom: 1rem;">
+                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+                    <div style="width: 20px; height: 20px; background: ${nodeData.color}; border-radius: 50%;"></div>
+                    <strong style="color: var(--accent-gold); font-size: 1.1rem;">${nodeData.label}</strong>
+                </div>
+                <div style="color: var(--text-muted); font-size: 0.9rem;">Type: ${nodeData.type || nodeData.group}</div>
+            </div>
+        `;
+
+        if (entityData) {
+            detailsHTML += `
+                <div style="margin-bottom: 1rem;">
+                    <div style="color: var(--text-muted); font-size: 0.9rem;">
+                        Confidence: <span style="color: var(--accent-gold);">${(entityData.confidence * 100).toFixed(1)}%</span>
+                    </div>
+                </div>
+            `;
+
+            if (entityData.properties && Object.keys(entityData.properties).length > 0) {
+                detailsHTML += `
+                    <div>
+                        <strong style="color: var(--accent-bronze);">Properties:</strong>
+                        <div style="margin-top: 0.5rem; font-size: 0.9rem;">
+                `;
+                
+                Object.entries(entityData.properties).forEach(([key, value]) => {
+                    const displayValue = Array.isArray(value) ? value.join(', ') : value;
+                    detailsHTML += `<div style="color: var(--text-primary); margin: 0.2rem 0;">
+                        <span style="color: var(--text-muted);">${key}:</span> ${displayValue}
+                    </div>`;
+                });
+                
+                detailsHTML += '</div></div>';
+            }
+        }
+
+        // Show connected relationships
+        if (currentResult && currentResult.relations) {
+            const connections = currentResult.relations.filter(r => 
+                r.subject === nodeData.id || r.object === nodeData.id
+            );
+            
+            if (connections.length > 0) {
+                detailsHTML += `
+                    <div style="margin-top: 1rem;">
+                        <strong style="color: var(--accent-bronze);">Connections:</strong>
+                        <div style="margin-top: 0.5rem; font-size: 0.85rem; max-height: 150px; overflow-y: auto;">
+                `;
+                
+                connections.forEach(conn => {
+                    const isSubject = conn.subject === nodeData.id;
+                    const otherEntity = isSubject ? conn.object : conn.subject;
+                    const predicate = conn.predicate.split(':').pop();
+                    
+                    detailsHTML += `<div style="margin: 0.3rem 0; padding: 0.3rem; background: rgba(26, 31, 58, 0.5); border-radius: 4px;">
+                        ${isSubject ? 
+                            `→ <span style="color: var(--accent-bronze);">${predicate}</span> → ${otherEntity}` :
+                            `${otherEntity} → <span style="color: var(--accent-bronze);">${predicate}</span> →`
+                        }
+                    </div>`;
+                });
+                
+                detailsHTML += '</div></div>';
+            }
+        }
+
+        details.innerHTML = detailsHTML;
+        info.style.display = 'block';
+    }
+
+    window.hideNetworkInfo = function() {
+        document.getElementById('networkInfo').style.display = 'none';
+    };
+
+    function displaySummary(summary) {
+        // Network density
+        const density = summary.network_density || 0;
+        document.getElementById('networkDensity').textContent = density.toFixed(3);
+
+        // Key entities
+        const keyEntitiesList = document.getElementById('keyEntitiesList');
+        if (summary.key_entities && summary.key_entities.length > 0) {
+            keyEntitiesList.innerHTML = summary.key_entities
+                .map(entity => `<div>${entity.label} (${entity.connections})</div>`)
+                .join('');
+        } else {
+            keyEntitiesList.innerHTML = '<div style="color: var(--text-muted);">No key entities identified</div>';
+        }
+
+        // Entity types distribution
+        const entityTypesChart = document.getElementById('entityTypesChart');
+        if (summary.entity_type_distribution) {
+            entityTypesChart.innerHTML = Object.entries(summary.entity_type_distribution)
+                .map(([type, count]) => `<div>${type}: ${count}</div>`)
+                .join('');
+        }
+
+        // Relation types distribution
+        const relationTypesChart = document.getElementById('relationTypesChart');
+        if (summary.relation_type_distribution) {
+            relationTypesChart.innerHTML = Object.entries(summary.relation_type_distribution)
+                .map(([type, count]) => `<div>${type}: ${count}</div>`)
+                .join('');
+        }
+    }
+
+    function displayEntities(entities) {
+        const entitiesList = document.getElementById('entitiesList');
+        entitiesList.innerHTML = entities.map(entity => `
+            <div class="entity-item">
+                <div class="entity-header">
+                    <div class="entity-label">${entity.label}</div>
+                    <div class="entity-type">${entity.type.split(':').pop()}</div>
+                </div>
+                <div class="entity-confidence">Confidence: ${(entity.confidence * 100).toFixed(1)}%</div>
+                ${entity.properties && Object.keys(entity.properties).length > 0 ? 
+                    `<div style="margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-muted);">
+                        ${Object.entries(entity.properties).map(([key, value]) => 
+                            `${key}: ${Array.isArray(value) ? value.join(', ') : value}`
+                        ).join(' • ')}
+                    </div>` : ''
+                }
+            </div>
+        `).join('');
+    }
+
+    function displayRelations(relations) {
+        const relationsList = document.getElementById('relationsList');
+        relationsList.innerHTML = relations.map(relation => `
+            <div class="relation-item">
+                <div class="relation-triple">
+                    <span class="relation-subject">${relation.subject.split(':').pop()}</span>
+                    <span class="relation-arrow">→</span>
+                    <span class="relation-predicate">${relation.predicate.split(':').pop()}</span>
+                    <span class="relation-arrow">→</span>
+                    <span class="relation-object">${relation.object}</span>
+                </div>
+                <div style="margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-muted);">
+                    Confidence: ${(relation.confidence * 100).toFixed(1)}%
+                </div>
+            </div>
+        `).join('');
+    }
+// Add these functions to your existing JavaScript section
+
+    function displayCoherenceAnalysis(coherenceData) {
+        const coherenceDiv = document.getElementById('coherenceAnalysis');
+        
+        if (!coherenceData || coherenceData.error) {
+            coherenceDiv.innerHTML = `
+                <div class="coherence-unavailable">
+                    <h4>🚫 Coherence Analysis Unavailable</h4>
+                    <p>${coherenceData?.error || 'Coherence analysis is only available for advanced extraction modes.'}</p>
+                    <p>Try using "RAG-Enhanced" or "External Enriched" modes for coherence analysis.</p>
+                </div>
+            `;
+            return;
+        }
+
+        let html = `
+            <div class="coherence-section">
+                <div class="coherence-header">
+                    🧠 Narrative Coherence Analysis
+                </div>
+                
+                <div class="coherence-score">
+                    ${(coherenceData.overall_coherence_score * 100).toFixed(1)}%
+                    <div style="font-size: 0.6em; color: var(--text-muted); margin-top: 0.5rem;">
+                        Overall Coherence Score
+                    </div>
+                </div>
+
+                <div class="coherence-grid">
+                    <div class="coherence-metric">
+                        <div class="coherence-metric-value">${coherenceData.contradictions?.length || 0}</div>
+                        <div class="coherence-metric-label">Contradictions Found</div>
+                    </div>
+        `;
+
+        // Add narrative metrics if available
+        if (coherenceData.narrative_coherence) {
+            const narrative = coherenceData.narrative_coherence;
+            html += `
+                    <div class="coherence-metric">
+                        <div class="coherence-metric-value">${narrative.causal_chains || 0}</div>
+                        <div class="coherence-metric-label">Causal Chains</div>
+                    </div>
+                    <div class="coherence-metric">
+                        <div class="coherence-metric-value">${narrative.longest_chain || 0}</div>
+                        <div class="coherence-metric-label">Longest Chain</div>
+                    </div>
+                    <div class="coherence-metric">
+                        <div class="coherence-metric-value">${narrative.dialogue_interactions || 0}</div>
+                        <div class="coherence-metric-label">Dialogue Interactions</div>
+                    </div>
+            `;
+        }
+
+        html += `
+                </div>
+        `;
+
+        // Add contradictions section
+        if (coherenceData.contradictions && coherenceData.contradictions.length > 0) {
+            html += `
+                <div>
+                    <h5 style="color: var(--text-accent); margin: 1.5rem 0 1rem 0;">⚠️ Detected Contradictions</h5>
+                    <div class="contradiction-list">
+            `;
+            
+            coherenceData.contradictions.forEach((contradiction, index) => {
+                const type = contradiction.type?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Unknown';
+                html += `
+                    <div class="contradiction-item">
+                        <div class="contradiction-type">${type}</div>
+                        <div class="contradiction-description">${contradiction.description || 'No description available'}</div>
+                        ${contradiction.conflicting_objects ? 
+                            `<div class="contradiction-entities">Conflicting: ${contradiction.conflicting_objects.join(', ')}</div>` : 
+                            ''
+                        }
+                    </div>
+                `;
+            });
+            
+            html += `
+                    </div>
+                </div>
+            `;
+        } else {
+            html += `
+                <div style="text-align: center; color: var(--accent-gold); padding: 1rem;">
+                    ✅ No contradictions detected in the narrative
+                </div>
+            `;
+        }
+
+        // Add narrative flow analysis
+        if (coherenceData.narrative_coherence) {
+            const narrative = coherenceData.narrative_coherence;
+            html += `
+                <div class="narrative-flow">
+                    <h5>📊 Narrative Flow Analysis</h5>
+                    <div class="flow-metric">
+                        <span class="flow-label">Emotional Triangulations:</span>
+                        <span class="flow-value">${narrative.emotional_triangulations || 0}</span>
+                    </div>
+                    <div class="flow-metric">
+                        <span class="flow-label">Unique Speakers:</span>
+                        <span class="flow-value">${narrative.unique_speakers || 0}</span>
+                    </div>
+                    <div class="flow-metric">
+                        <span class="flow-label">Causal Chains:</span>
+                        <span class="flow-value">${narrative.causal_chains || 0}</span>
+                    </div>
+                    <div class="flow-metric">
+                        <span class="flow-label">Longest Chain:</span>
+                        <span class="flow-value">${narrative.longest_chain || 0} steps</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Add consistency scores
+        if (coherenceData.consistency_scores) {
+            html += `
+                <div>
+                    <h5 style="color: var(--accent-bronze); margin: 1.5rem 0 1rem 0;">📈 Consistency Scores</h5>
+                    <div class="consistency-bars">
+            `;
+            
+            Object.entries(coherenceData.consistency_scores).forEach(([aspect, score]) => {
+                const label = aspect.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                const percentage = (score * 100).toFixed(1);
+                html += `
+                    <div class="consistency-bar">
+                        <div class="consistency-label">${label}:</div>
+                        <div class="consistency-progress">
+                            <div class="consistency-fill" style="width: ${percentage}%"></div>
+                        </div>
+                        <div class="consistency-score">${percentage}%</div>
+                    </div>
+                `;
+            });
+            
+            html += `
+                    </div>
+                </div>
+            `;
+        }
+
+        html += `
+            </div>
+        `;
+
+        coherenceDiv.innerHTML = html;
+    }
+
+    // Function to update the summary stats to include coherence info
+    function updateSummaryWithCoherence(summary, coherenceData) {
+        if (!coherenceData || coherenceData.error) return;
+        
+        // Add coherence score to summary grid
+        const summaryGrid = document.querySelector('.summary-grid');
+        if (summaryGrid && coherenceData.overall_coherence_score !== undefined) {
+            const coherenceCard = document.createElement('div');
+            coherenceCard.className = 'summary-card';
+            coherenceCard.innerHTML = `
+                <h4>🧠 Coherence Score</h4>
+                <div class="summary-value">${(coherenceData.overall_coherence_score * 100).toFixed(1)}%</div>
+                <div class="summary-label">Narrative Coherence</div>
+            `;
+            summaryGrid.appendChild(coherenceCard);
+        }
+    }
+    function setupDownloadButtons(result) {
+        // RDF download
+        const downloadRDFBtn = document.getElementById('downloadRDFBtn');
+        downloadRDFBtn.onclick = () => {
+            const blob = new Blob([result.rdf_content], { type: 'text/turtle' });
+            const filename = `knowledge_graph_${result.format}.${getFileExtension(result.format)}`;
+            downloadBlob(blob, filename);
+        };
+
+        // JSON download
+        const downloadJSONBtn = document.getElementById('downloadJSONBtn');
+        downloadJSONBtn.onclick = () => {
+            const jsonData = JSON.stringify(result, null, 2);
+            const blob = new Blob([jsonData], { type: 'application/json' });
+            downloadBlob(blob, 'knowledge_graph_complete.json');
+        };
+
+        // CSV download
+        const downloadCSVBtn = document.getElementById('downloadCSVBtn');
+        downloadCSVBtn.onclick = () => {
+            const csvData = convertToCSV(result.entities, result.relations);
+            const blob = new Blob([csvData], { type: 'text/csv' });
+            downloadBlob(blob, 'knowledge_graph_entities.csv');
+        };
+
+        // Copy functionality
+        const copyBtn = document.getElementById('copyBtn');
+        copyBtn.onclick = () => {
+            navigator.clipboard.writeText(result.rdf_content).then(() => {
+                copyBtn.textContent = '✅ Copied!';
+                setTimeout(() => {
+                    copyBtn.textContent = '📋 Copy RDF';
+                }, 2000);
+            });
+        };
+    }
+
+    function convertToCSV(entities, relations) {
+        let csv = 'Type,ID,Label,Entity_Type,Confidence,Properties\n';
+        
+        entities.forEach(entity => {
+            const properties = entity.properties ? JSON.stringify(entity.properties).replace(/"/g, '""') : '';
+            csv += `Entity,"${entity.id}","${entity.label}","${entity.type}",${entity.confidence},"${properties}"\n`;
+        });
+        
+        relations.forEach(relation => {
+            csv += `Relation,"${relation.subject}","${relation.predicate}","${relation.object}",${relation.confidence},""\n`;
+        });
+        
+        return csv;
+    }
+
+    function getFileExtension(format) {
+        const extensions = {
+            'turtle': 'ttl',
+            'rdf_xml': 'rdf',
+            'n3': 'n3',
+            'json_ld': 'jsonld'
+        };
+        return extensions[format] || 'ttl';
+    }
+
+    function downloadBlob(blob, filename) {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+    }
+
+    function showLoading(message) {
+        document.getElementById('loadingProgress').textContent = message;
+        document.getElementById('loadingOverlay').style.display = 'flex';
+    }
+
+    function hideLoading() {
+        document.getElementById('loadingOverlay').style.display = 'none';
+    }
+
+    function showError(message) {
+        document.getElementById('errorMessage').innerHTML = message;
+        document.getElementById('errorSection').style.display = 'block';
+        document.getElementById('errorSection').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function hideError() {
+        document.getElementById('errorSection').style.display = 'none';
+    }
+
+    function showSuccess(message) {
+        const successDiv = document.createElement('div');
+        successDiv.className = 'success-message';
+        successDiv.innerHTML = `<h3>✅ Success!</h3><p>${message}</p>`;
+        
+        const container = document.querySelector('.kg-container');
+        container.insertBefore(successDiv, container.firstChild);
+        
+        successDiv.scrollIntoView({ behavior: 'smooth' });
+        
+        setTimeout(() => {
+            successDiv.remove();
+        }, 10000);
+    }
+
+    function hideResults() {
+        document.getElementById('resultsSection').style.display = 'none';
+    }
+
+    // Global functions for tab switching and examples
+    window.switchTab = function(tabName) {
+        document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+        
+        document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
+        document.getElementById(tabName).classList.add('active');
+    };
+
+    window.switchResultTab = function(tabName) {
+        document.querySelectorAll('.result-tab').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.result-tab-content').forEach(content => content.classList.remove('active'));
+        
+        document.querySelector(`[onclick="switchResultTab('${tabName}')"]`).classList.add('active');
+        document.getElementById(tabName + '-tab').classList.add('active');
+    };
+
+    window.loadExample = function(exampleType) {
+        const examples = {
+            'roman-battle': {
+                text: "In the year 31 BC, Augustus defeated Mark Antony at the Battle of Actium. This victory established Augustus as the first Roman Emperor and ended the Roman Republic. The battle was fought near the promontory of Actium in western Greece. Augustus commanded the western fleet while Antony and Cleopatra commanded the eastern forces.",
+                mode: 'basic'
+            },
+            'greek-philosophy': {
+                text: "Socrates taught Plato in Athens during the 5th century BC. Plato founded the Academy around 387 BC, which became one of the most famous schools of philosophy. Aristotle was a student of Plato and later became the tutor of Alexander the Great. The Academy continued to operate for nearly 900 years until it was closed by Emperor Justinian in 529 AD.",
+                mode: 'rag_enhanced'
+            }
+        };
+
+        const example = examples[exampleType];
+        if (example) {
+            switchTab('text-input');
+            document.getElementById('inputText').value = example.text;
+            
+            // Set the mode
+            document.querySelector(`input[name="mode"][value="${example.mode}"]`).checked = true;
+            document.querySelectorAll('.mode-card').forEach(card => {
+                card.classList.remove('selected');
+                if (card.querySelector(`input[value="${example.mode}"]`)) {
+                    card.classList.add('selected');
+                }
+            });
+            
+            document.getElementById('inputText').scrollIntoView({ behavior: 'smooth' });
+        }
+    };
+
+    window.hideError = hideError;
+});
+</script>
+{% endblock %}

@@ -3,7 +3,6 @@
 {% block title %}MEDEA-NEUMOUSA - The Robot Destroyer | Where Ancient Voices Rise{% endblock %}
 
 {% block content %}
-<!-- Hero Section -->
 <section class="hero">
     <h1 class="hero-title fade-in">MEDEA-NEUMOUSA</h1>
     <p class="hero-subtitle fade-in">The Robot Destroyer</p>
@@ -19,12 +18,10 @@
     </div>
 </section>
 
-<!-- Powers Section -->
 <section style="max-width: 1200px; margin: 4rem auto; padding: 0 2rem;">
     <h2 style="text-align: center; margin-bottom: 3rem;">⚡ Powers of MEDEA-NEUMOUSA</h2>
     
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 2rem;">
-        <!-- Necromancer Card -->
         <div class="card fade-in">
             <h3 class="card-title">🔮 Necromancer Module</h3>
             <p>Resurrect ancient languages and translate between 20+ dead tongues including Latin, Ancient Greek, Sanskrit, Gothic, Hittite, Hebrew, and Aramaic.</p>
@@ -37,8 +34,20 @@
             </ul>
             <a href="/translate" class="btn" style="margin-top: 1rem;">Try the Necromancer</a>
         </div>
+
+        <div class="card fade-in">
+            <h3 class="card-title">📏 Linguistic Distance</h3>
+            <p>Measure the evolutionary distance between ancient languages using five-dimensional analysis: lexical, syntactic, typological, phonological, and featural vectors.</p>
+            <ul style="margin: 1rem 0; padding-left: 1rem; color: var(--text-muted);">
+                <li>• Multi-dimensional distance metrics</li>
+                <li>• WALS typological features</li>
+                <li>• URIEL+ featural analysis</li>
+                <li>• Swadesh lexical comparison</li>
+                <li>• ASJP phonological data</li>
+            </ul>
+            <a href="/linguistic-distance" class="btn" style="margin-top: 1rem;">Measure Distances</a>
+        </div>
         
-        <!-- Classical Analysis Card -->
         <div class="card fade-in">
             <h3 class="card-title">🏛️ Classical Analysis</h3>
             <p>Deep linguistic analysis tools for classical texts including prosodic analysis, named entity recognition, and intertextual mapping.</p>
@@ -52,7 +61,6 @@
             <span style="color: var(--text-muted); font-style: italic;">Coming Soon</span>
         </div>
         
-        <!-- Semantic Networks Card -->
         <div class="card fade-in">
             <h3 class="card-title">🕸️ Semantic Oracle</h3>
             <p>Discover hidden connections between ancient texts through semantic analysis, clustering, and textual echo detection.</p>
@@ -65,10 +73,35 @@
             </ul>
             <a href="/semantic" class="btn" style="margin-top: 1rem;">Consult the Oracle</a>
         </div>
+
+        <div class="card fade-in">
+            <h3 class="card-title">🧠 Emotion Knowledge Graph</h3>
+            <p>Extract and visualize emotional content from text using AI-powered sentiment analysis. Maps all emotions including negative ones like disgust and hatred into interactive networks.</p>
+            <ul style="margin: 1rem 0; padding-left: 1rem; color: var(--text-muted);">
+                <li>• LLM-powered emotion extraction</li>
+                <li>• Sentiment-based node sizing</li>
+                <li>• Interactive network visualization</li>
+                <li>• All emotions supported (positive & negative)</li>
+                <li>• RDF knowledge graph output</li>
+            </ul>
+            <a href="/emotions" class="btn" style="margin-top: 1rem;">Analyze Emotions</a>
+        </div>
+
+        <div class="card fade-in">
+            <h3 class="card-title">🕸️ Knowledge Graph Oracle</h3>
+            <p>Transform ancient texts into structured RDF knowledge graphs with enhanced semantic network analysis and visualization.</p>
+            <ul style="margin: 1rem 0; padding-left: 1rem; color: var(--text-muted);">
+                <li>• Entity and relation extraction</li>
+                <li>• RDF knowledge graph creation</li>
+                <li>• Semantic network analysis</li>
+                <li>• Interactive graph visualization</li>
+                <li>• Multiple export formats</li>
+            </ul>
+            <a href="/kg" class="btn" style="margin-top: 1rem;">Extract Knowledge</a>
+        </div>
     </div>
 </section>
 
-<!-- Languages Section -->
 <section style="max-width: 1000px; margin: 4rem auto; padding: 0 2rem;">
     <h2 style="text-align: center; margin-bottom: 2rem;">🌍 Ancient Tongues Commanded</h2>
     
@@ -114,9 +147,54 @@
     </div>
 </section>
 
-<!-- Mythology Section -->
+<section style="max-width: 1000px; margin: 4rem auto; padding: 0 2rem;">
+    <h2 style="text-align: center; margin-bottom: 2rem;">📊 Five-Dimensional Linguistic Analysis</h2>
+    
+    <div class="card">
+        <p style="text-align: center; font-size: 1.2rem; margin-bottom: 2rem; color: var(--text-light);">
+            MEDEA-NEUMOUSA employs your comprehensive five-dimensional framework to measure linguistic distances:
+        </p>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1.5rem; margin: 2rem 0;">
+            <div style="text-align: center;">
+                <div style="background: var(--accent-gold); color: var(--primary-dark); width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.5rem; margin: 0 auto 1rem;">1</div>
+                <h4 style="color: var(--accent-gold);">Lexical</h4>
+                <p style="font-size: 0.9rem; color: var(--text-muted);">Swadesh word lists, vocabulary preservation</p>
+            </div>
+            
+            <div style="text-align: center;">
+                <div style="background: var(--accent-gold); color: var(--primary-dark); width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.5rem; margin: 0 auto 1rem;">2</div>
+                <h4 style="color: var(--accent-gold);">Syntactic</h4>
+                <p style="font-size: 0.9rem; color: var(--text-muted);">Universal Dependencies treebanks</p>
+            </div>
+            
+            <div style="text-align: center;">
+                <div style="background: var(--accent-gold); color: var(--primary-dark); width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.5rem; margin: 0 auto 1rem;">3</div>
+                <h4 style="color: var(--accent-gold);">Typological</h4>
+                <p style="font-size: 0.9rem; color: var(--text-muted);">WALS structural features</p>
+            </div>
+            
+            <div style="text-align: center;">
+                <div style="background: var(--accent-gold); color: var(--primary-dark); width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.5rem; margin: 0 auto 1rem;">4</div>
+                <h4 style="color: var(--accent-gold);">Phonological</h4>
+                <p style="font-size: 0.9rem; color: var(--text-muted);">ASJP sound correspondences</p>
+            </div>
+            
+            <div style="text-align: center;">
+                <div style="background: var(--accent-gold); color: var(--primary-dark); width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.5rem; margin: 0 auto 1rem;">5</div>
+                <h4 style="color: var(--accent-gold);">Featural</h4>
+                <p style="font-size: 0.9rem; color: var(--text-muted);">URIEL+ dense vectors</p>
+            </div>
+        </div>
+        
+        <div style="text-align: center; margin-top: 2rem;">
+            <a href="/linguistic-distance" class="btn">Measure Linguistic Distances</a>
+        </div>
+    </div>
+</section>
+
 <section style="max-width: 800px; margin: 4rem auto; padding: 0 2rem; text-align: center;">
-    <h2 style="margin-bottom: 2rem;">🏛️ The Mythology</h2>
+    <h2 style="margin-bottom: 2rem;">The Mythology</h2>
     
     <div class="card">
         <p style="font-size: 1.2rem; margin-bottom: 2rem; color: var(--text-light);">
@@ -125,12 +203,12 @@
         
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; margin: 2rem 0;">
             <div>
-                <h3 style="color: var(--text-accent);">⚡ Medea (Μήδεια)</h3>
+                <h3 style="color: var(--text-accent);">Medea (Μήδεια)</h3>
                 <p>The sorceress. Represents the triumph of intelligent magic over mindless automation.</p>
             </div>
             
             <div>
-                <h3 style="color: var(--text-accent);">🎭 Neumousa (Νεύμουσα)</h3>
+                <h3 style="color: var(--text-accent);">Neumousa (Νεύμουσα)</h3>
                 <p><em>"Of the Nine Muses"</em> - The goddesses of arts, literature, and knowledge. Source of inspiration for all scholarly pursuits.</p>
             </div>
         </div>
@@ -141,9 +219,8 @@
     </div>
 </section>
 
-<!-- Quick Start Section -->
 <section style="max-width: 600px; margin: 4rem auto; padding: 0 2rem; text-align: center;">
-    <h2 style="margin-bottom: 2rem;">🚀 Quick Start</h2>
+    <h2 style="margin-bottom: 2rem;">Quick Start</h2>
     
     <div class="card">
         <div style="display: flex; flex-direction: column; gap: 1rem;">
@@ -169,7 +246,7 @@
         </div>
         
         <div style="margin-top: 2rem;">
-            <a href="/translate" class="btn">🔮 Begin the Resurrection</a>
+            <a href="/translate" class="btn">Begin the Resurrection</a>
         </div>
     </div>
 </section>

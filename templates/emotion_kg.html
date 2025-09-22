@@ -1,0 +1,1032 @@
+{% extends "base.html" %}
+
+{% block title %}Emotion Knowledge Graph - MEDEA-NEUMOUSA{% endblock %}
+
+{% block extra_head %}
+<!-- D3.js and Vis.js for network visualization -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.css" rel="stylesheet">
+
+<style>
+    .emotion-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+    
+    .emotion-header {
+        text-align: center;
+        margin-bottom: 3rem;
+    }
+    
+    .analysis-options {
+        background: rgba(26, 31, 58, 0.3);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        padding: 2rem;
+        margin: 2rem 0;
+    }
+    
+    .options-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        margin: 1rem 0;
+    }
+    
+    .option-group {
+        background: rgba(26, 31, 58, 0.2);
+        border-radius: 8px;
+        padding: 1rem;
+        border: 1px solid var(--border-color);
+    }
+    
+    .option-group h4 {
+        color: var(--accent-bronze);
+        margin: 0 0 1rem 0;
+        font-size: 1rem;
+    }
+    
+    .checkbox-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin: 0.5rem 0;
+    }
+    
+    .checkbox-item input[type="checkbox"] {
+        accent-color: var(--accent-gold);
+    }
+    
+    .results-container {
+        background: rgba(26, 31, 58, 0.3);
+        border-radius: 10px;
+        padding: 2rem;
+        margin: 2rem 0;
+        border: 1px solid var(--border-color);
+        display: none;
+    }
+    
+    .sentiment-score {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        margin: 1rem 0;
+        padding: 1rem;
+        background: rgba(26, 31, 58, 0.5);
+        border-radius: 8px;
+    }
+    
+    .sentiment-bar {
+        width: 200px;
+        height: 20px;
+        background: linear-gradient(to right, #ff0000, #ffff00, #00ff00);
+        border-radius: 10px;
+        position: relative;
+        border: 1px solid var(--border-color);
+    }
+    
+    .sentiment-indicator {
+        width: 4px;
+        height: 24px;
+        background: #ffffff;
+        position: absolute;
+        top: -2px;
+        border-radius: 2px;
+        box-shadow: 0 0 5px rgba(0,0,0,0.5);
+    }
+    
+    .emotion-tabs {
+        display: flex;
+        gap: 0.5rem;
+        margin: 1rem 0;
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    .emotion-tab {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        padding: 0.75rem 1rem;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        transition: all 0.3s ease;
+        font-size: 0.9rem;
+    }
+    
+    .emotion-tab.active {
+        color: var(--accent-gold);
+        border-bottom-color: var(--accent-gold);
+    }
+    
+    .emotion-tab-content {
+        display: none;
+        margin-top: 1rem;
+    }
+    
+    .emotion-tab-content.active {
+        display: block;
+    }
+    
+    .emotion-list {
+        display: grid;
+        gap: 0.5rem;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .emotion-item {
+        background: rgba(26, 31, 58, 0.5);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 1rem;
+        transition: all 0.3s ease;
+        position: relative;
+    }
+    
+    .emotion-item:hover {
+        border-color: var(--accent-gold);
+        transform: translateY(-2px);
+    }
+    
+    .emotion-header-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+    
+    .emotion-label {
+        font-weight: 600;
+        font-size: 1.1rem;
+        text-transform: capitalize;
+    }
+    
+    .emotion-type {
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        color: var(--bg-primary);
+    }
+    
+    .emotion-metrics {
+        display: flex;
+        gap: 1rem;
+        margin: 0.5rem 0;
+        font-size: 0.9rem;
+    }
+    
+    .metric {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .metric-value {
+        font-weight: bold;
+        color: var(--accent-gold);
+    }
+    
+    .metric-label {
+        color: var(--text-muted);
+        font-size: 0.8rem;
+    }
+    
+    .emotion-context {
+        color: var(--text-muted);
+        font-style: italic;
+        margin: 0.5rem 0;
+        font-size: 0.9rem;
+    }
+    
+    .emotion-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.3rem;
+        margin: 0.5rem 0;
+    }
+    
+    .emotion-tag {
+        background: var(--accent-bronze);
+        color: var(--bg-primary);
+        padding: 0.2rem 0.4rem;
+        border-radius: 3px;
+        font-size: 0.7rem;
+    }
+    
+    .network-container {
+        background: rgba(26, 31, 58, 0.2);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        height: 600px;
+        position: relative;
+    }
+    
+    .network-controls {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 100;
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .network-btn {
+        background: rgba(26, 31, 58, 0.8);
+        border: 1px solid var(--accent-gold);
+        color: var(--accent-gold);
+        padding: 0.5rem;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.8rem;
+    }
+    
+    .network-btn:hover {
+        background: var(--accent-gold);
+        color: var(--bg-primary);
+    }
+    
+    .legend {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin: 1rem 0;
+    }
+    
+    .legend-section {
+        background: rgba(26, 31, 58, 0.3);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 1rem;
+    }
+    
+    .legend-title {
+        color: var(--accent-bronze);
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+    
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin: 0.3rem 0;
+        font-size: 0.8rem;
+    }
+    
+    .legend-color {
+        width: 15px;
+        height: 15px;
+        border-radius: 50%;
+        border: 1px solid var(--border-color);
+    }
+    
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+    
+    .loading-content {
+        background: var(--card-bg);
+        padding: 2rem;
+        border-radius: 10px;
+        text-align: center;
+        border: 1px solid var(--accent-gold);
+    }
+    
+    .loading-spinner {
+        width: 50px;
+        height: 50px;
+        border: 3px solid var(--border-color);
+        border-top: 3px solid var(--accent-gold);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 1rem;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .error-message {
+        background: rgba(233, 69, 96, 0.1);
+        border: 1px solid var(--text-accent);
+        border-radius: 8px;
+        padding: 1rem;
+        color: var(--text-accent);
+        margin: 1rem 0;
+        display: none;
+    }
+    
+    .download-section {
+        display: flex;
+        gap: 1rem;
+        margin: 1rem 0;
+        flex-wrap: wrap;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="emotion-container">
+    <div class="emotion-header">
+        <h1 style="font-size: 3rem; margin-bottom: 1rem;">🧠💭 Emotion Knowledge Graph</h1>
+        <p style="font-size: 1.3rem; color: var(--text-muted); font-style: italic;">
+            "Ἡ Μήδεια τὰ πάθη διὰ νοῦ εἰς δίκτυα συνείρει"<br>
+            <span style="font-size: 1rem;">"Medea weaves emotions through intelligence into networks"</span>
+        </p>
+        <p style="color: var(--text-primary); margin-top: 1rem;">
+            Analyze emotional content with LLM-powered extraction and sentiment-based visualization.<br>
+            <strong>All emotions supported</strong> - including negative ones like disgust, hatred, contempt, and rage.
+        </p>
+    </div>
+
+    <!-- Analysis Form -->
+    <form id="emotionForm">
+        <div class="analysis-options">
+            <h3 style="color: var(--accent-gold); margin-bottom: 1rem;">🎭 Emotion Analysis Configuration</h3>
+            
+            <div class="options-grid">
+                <div class="option-group">
+                    <h4>🔍 Analysis Mode</h4>
+                    <select name="sentiment_analysis_mode" class="form-select">
+                        <option value="comprehensive">Comprehensive Analysis</option>
+                        <option value="basic">Basic Analysis</option>
+                        <option value="deep">Deep Analysis</option>
+                    </select>
+                </div>
+                
+                <div class="option-group">
+                    <h4>📊 Visualization Style</h4>
+                    <select name="visualization_style" class="form-select">
+                        <option value="sentiment_sized">Sentiment-Based Sizing</option>
+                        <option value="intensity_sized">Intensity-Based Sizing</option>
+                        <option value="balanced">Balanced View</option>
+                    </select>
+                </div>
+                
+                <div class="option-group">
+                    <h4>😈 Emotion Types</h4>
+                    <div class="checkbox-item">
+                        <input type="checkbox" name="include_negative_emotions" checked>
+                        <span>Include Negative Emotions (disgust, hatred, etc.)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Text Input -->
+        <div class="form-group">
+            <label class="form-label" for="inputText">📝 Text for Emotion Analysis</label>
+            <textarea 
+                id="inputText" 
+                name="text" 
+                class="form-textarea" 
+                rows="8"
+                placeholder="Enter text containing emotional content for analysis...
+
+Examples:
+• Personal narratives and experiences
+• Literary texts with emotional depth
+• News articles about traumatic events
+• Social media posts expressing feelings
+• Reviews containing strong opinions
+
+The system will extract ALL emotions including:
+✓ Positive: joy, love, pride, happiness
+✓ Negative: anger, disgust, hatred, contempt, rage
+✓ Complex: shame, guilt, envy, nostalgia
+
+Node sizes reflect emotion intensity, colors show sentiment polarity."
+                required
+            ></textarea>
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">
+                Minimum 10 characters. Include descriptive emotional language for best results.
+            </div>
+        </div>
+
+        <!-- Submit Button -->
+        <div style="text-align: center; margin: 2rem 0;">
+            <button type="submit" class="btn">
+                🧠 Analyze Emotions
+            </button>
+        </div>
+    </form>
+
+    <!-- Error Display -->
+    <div id="errorSection" class="error-message">
+        <h3>💀 Emotion Analysis Failed</h3>
+        <p id="errorMessage"></p>
+    </div>
+
+    <!-- Results Section -->
+    <div id="resultsSection" class="results-container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+            <h3 style="color: var(--accent-gold); margin: 0;">🧠 Emotion Analysis Results</h3>
+            <div id="processingTime" style="color: var(--text-muted); font-size: 0.9rem;"></div>
+        </div>
+        
+        <!-- Overall Sentiment Display -->
+        <div class="sentiment-score">
+            <span style="color: var(--text-muted);">Overall Sentiment:</span>
+            <div class="sentiment-bar">
+                <div id="sentimentIndicator" class="sentiment-indicator"></div>
+            </div>
+            <span id="sentimentValue" style="color: var(--accent-gold); font-weight: bold;">0.0</span>
+        </div>
+        
+        <div id="analysisNotes" style="color: var(--text-muted); text-align: center; margin: 1rem 0;"></div>
+
+        <!-- Results Tabs -->
+        <div class="emotion-tabs">
+            <button class="emotion-tab active" onclick="switchEmotionTab('overview')">📊 Overview</button>
+            <button class="emotion-tab" onclick="switchEmotionTab('emotions')">🎭 Emotions</button>
+            <button class="emotion-tab" onclick="switchEmotionTab('network')">🕸️ Network</button>
+            <button class="emotion-tab" onclick="switchEmotionTab('relationships')">🔗 Relationships</button>
+        </div>
+
+        <!-- Overview Tab -->
+        <div id="overview-tab" class="emotion-tab-content active">
+            <div class="summary-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                <div class="summary-card" style="background: rgba(26, 31, 58, 0.3); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; text-align: center;">
+                    <div style="color: var(--accent-gold); font-size: 1.5rem; font-weight: bold;" id="totalEmotions">0</div>
+                    <div style="color: var(--text-muted);">Total Emotions</div>
+                </div>
+                <div class="summary-card" style="background: rgba(26, 31, 58, 0.3); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; text-align: center;">
+                    <div style="color: var(--accent-gold); font-size: 1.5rem; font-weight: bold;" id="dominantEmotion">-</div>
+                    <div style="color: var(--text-muted);">Dominant Emotion</div>
+                </div>
+                <div class="summary-card" style="background: rgba(26, 31, 58, 0.3); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; text-align: center;">
+                    <div style="color: var(--accent-gold); font-size: 1.5rem; font-weight: bold;" id="positivePercent">0%</div>
+                    <div style="color: var(--text-muted);">Positive</div>
+                </div>
+                <div class="summary-card" style="background: rgba(26, 31, 58, 0.3); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; text-align: center;">
+                    <div style="color: var(--accent-gold); font-size: 1.5rem; font-weight: bold;" id="negativePercent">0%</div>
+                    <div style="color: var(--text-muted);">Negative</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Emotions Tab -->
+        <div id="emotions-tab" class="emotion-tab-content">
+            <div id="emotionsList" class="emotion-list">
+                <!-- Emotions will be populated here -->
+            </div>
+        </div>
+
+        <!-- Network Tab -->
+        <div id="network-tab" class="emotion-tab-content">
+            <div class="network-container">
+                <div class="network-controls">
+                    <button class="network-btn" onclick="resetNetwork()">🔄 Reset</button>
+                    <button class="network-btn" onclick="togglePhysics()">⚡ Physics</button>
+                    <button class="network-btn" onclick="fitNetwork()">🎯 Fit</button>
+                </div>
+                <div id="emotionNetwork" style="width: 100%; height: 100%;"></div>
+            </div>
+            
+            <!-- Network Legend -->
+            <div class="legend">
+                <div class="legend-section">
+                    <div class="legend-title">Node Colors (Sentiment)</div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #00ff00;"></div>
+                        <span>Very Positive (0.5 to 1.0)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #7fff00;"></div>
+                        <span>Positive (0.1 to 0.5)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #ffff00;"></div>
+                        <span>Neutral (-0.1 to 0.1)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #ff7f00;"></div>
+                        <span>Negative (-0.5 to -0.1)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #ff0000;"></div>
+                        <span>Very Negative (-1.0 to -0.5)</span>
+                    </div>
+                </div>
+                
+                <div class="legend-section">
+                    <div class="legend-title">Node Sizes</div>
+                    <div class="legend-item">
+                        <div style="width: 20px; height: 20px; border-radius: 50%; background: var(--accent-gold); border: 1px solid var(--border-color);"></div>
+                        <span>Size = Emotion Intensity</span>
+                    </div>
+                    <div class="legend-item">
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">Larger nodes = stronger emotions</span>
+                    </div>
+                </div>
+                
+                <div class="legend-section">
+                    <div class="legend-title">Border Colors (Type)</div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: transparent; border: 2px solid #ffffff;"></div>
+                        <span>Primary Emotion</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: transparent; border: 2px solid #00ffff;"></div>
+                        <span>Complex Emotion</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: transparent; border: 2px solid #ff00ff;"></div>
+                        <span>Mood</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Relationships Tab -->
+        <div id="relationships-tab" class="emotion-tab-content">
+            <div id="relationshipsList" style="max-height: 400px; overflow-y: auto;">
+                <!-- Relationships will be populated here -->
+            </div>
+        </div>
+        
+        <!-- Download Section -->
+        <div class="download-section">
+            <button class="btn btn-secondary" onclick="downloadJSON()">📊 Download JSON</button>
+            <button class="btn btn-secondary" onclick="downloadReport()">📄 Download Report</button>
+            <button class="btn btn-secondary" onclick="downloadRDF()">🔗 Download RDF</button>
+            <button class="btn btn-secondary" onclick="copyResults()">📋 Copy Results</button>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <h3 style="color: var(--accent-gold); margin-bottom: 0.5rem;">🧠 Analyzing Emotions</h3>
+            <p style="color: var(--text-muted);">
+                The Oracle is analyzing emotional content and mapping sentiment networks...
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentResults = null;
+let emotionNetwork = null;
+let networkData = null;
+let physicsEnabled = true;
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Form submission
+    document.getElementById('emotionForm').addEventListener('submit', handleSubmission);
+});
+
+async function handleSubmission(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const data = {
+        text: formData.get('text'),
+        sentiment_analysis_mode: formData.get('sentiment_analysis_mode'),
+        visualization_style: formData.get('visualization_style'),
+        include_negative_emotions: formData.get('include_negative_emotions') === 'on'
+    };
+
+    if (data.text.trim().length < 10) {
+        showError('Text too short. Please provide at least 10 characters for emotion analysis.');
+        return;
+    }
+
+    showLoading();
+    hideError();
+    hideResults();
+
+    try {
+        const response = await fetch('/api/v1/emotion-kg/extract', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            let errorMessage;
+            try {
+                const errorJson = JSON.parse(errorText);
+                errorMessage = errorJson.detail || `Server error: ${response.status}`;
+            } catch {
+                errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+            }
+            showError(errorMessage);
+            return;
+        }
+
+        const result = await response.json();
+        currentResults = result;
+        displayResults(result);
+
+    } catch (error) {
+        console.error('API Error:', error);
+        if (error.name === 'TypeError' && error.message.includes('fetch')) {
+            showError('Failed to connect to the Emotion Analysis Oracle. Please check that the server is running.');
+        } else {
+            showError(`Network error: ${error.message}. Please try again.`);
+        }
+    } finally {
+        hideLoading();
+    }
+}
+
+function displayResults(result) {
+    // Update overview stats
+    document.getElementById('totalEmotions').textContent = result.entities.length;
+    document.getElementById('dominantEmotion').textContent = 
+        result.dominant_emotions.length > 0 ? result.dominant_emotions[0] : 'None';
+    
+    // Update sentiment distribution
+    const sentDist = result.sentiment_distribution;
+    document.getElementById('positivePercent').textContent = 
+        Math.round((sentDist.positive || 0) * 100) + '%';
+    document.getElementById('negativePercent').textContent = 
+        Math.round((sentDist.negative || 0) * 100) + '%';
+    
+    // Update sentiment indicator
+    updateSentimentIndicator(result.overall_sentiment);
+    
+    // Update processing time and notes
+    document.getElementById('processingTime').textContent = 
+        `Processed in ${result.processing_time.toFixed(2)}s`;
+    document.getElementById('analysisNotes').textContent = result.analysis_notes;
+    
+    // Display emotions
+    displayEmotions(result.entities);
+    
+    // Display relationships
+    displayRelationships(result.relations);
+    
+    // Display network
+    displayEmotionNetwork(result.visualization_data);
+    
+    // Show results
+    document.getElementById('resultsSection').style.display = 'block';
+    document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
+}
+
+function updateSentimentIndicator(sentiment) {
+    const indicator = document.getElementById('sentimentIndicator');
+    const value = document.getElementById('sentimentValue');
+    
+    // Convert sentiment (-1 to 1) to position (0 to 196px, accounting for indicator width)
+    const position = ((sentiment + 1) / 2) * 196;
+    indicator.style.left = position + 'px';
+    
+    value.textContent = sentiment.toFixed(2);
+    
+    // Update indicator color based on sentiment
+    if (sentiment > 0.1) {
+        indicator.style.background = '#00ff00';
+    } else if (sentiment < -0.1) {
+        indicator.style.background = '#ff0000';
+    } else {
+        indicator.style.background = '#ffff00';
+    }
+}
+
+function displayEmotions(emotions) {
+    const emotionsList = document.getElementById('emotionsList');
+    emotionsList.innerHTML = '';
+    
+    // Sort by intensity (highest first)
+    const sortedEmotions = [...emotions].sort((a, b) => b.intensity - a.intensity);
+    
+    sortedEmotions.forEach(emotion => {
+        const emotionItem = document.createElement('div');
+        emotionItem.className = 'emotion-item';
+        
+        // Get color based on sentiment
+        const emotionColor = getSentimentColor(emotion.sentiment_score);
+        const typeColor = getEmotionTypeColor(emotion.emotion_type);
+        
+        emotionItem.innerHTML = `
+            <div class="emotion-header-item">
+                <div class="emotion-label" style="color: ${emotionColor};">${emotion.label}</div>
+                <div class="emotion-type" style="background: ${typeColor};">${emotion.emotion_type}</div>
+            </div>
+            <div class="emotion-metrics">
+                <div class="metric">
+                    <div class="metric-value">${(emotion.intensity * 100).toFixed(0)}%</div>
+                    <div class="metric-label">Intensity</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value">${emotion.sentiment_score.toFixed(2)}</div>
+                    <div class="metric-label">Sentiment</div>
+                </div>
+            </div>
+            ${emotion.context ? `<div class="emotion-context">"${emotion.context}"</div>` : ''}
+            ${emotion.triggers.length > 0 ? `
+                <div class="emotion-tags">
+                    <strong style="color: var(--text-muted); font-size: 0.8rem;">Triggers:</strong>
+                    ${emotion.triggers.map(trigger => `<span class="emotion-tag">${trigger}</span>`).join('')}
+                </div>
+            ` : ''}
+            ${emotion.manifestations.length > 0 ? `
+                <div class="emotion-tags">
+                    <strong style="color: var(--text-muted); font-size: 0.8rem;">Manifestations:</strong>
+                    ${emotion.manifestations.map(manifest => `<span class="emotion-tag">${manifest}</span>`).join('')}
+                </div>
+            ` : ''}
+        `;
+        
+        emotionsList.appendChild(emotionItem);
+    });
+}
+
+function displayRelationships(relations) {
+    const relationshipsList = document.getElementById('relationshipsList');
+    relationshipsList.innerHTML = '';
+    
+    if (relations.length === 0) {
+        relationshipsList.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 2rem;">No emotion relationships detected</div>';
+        return;
+    }
+    
+    relations.forEach(relation => {
+        const relationItem = document.createElement('div');
+        relationItem.className = 'emotion-item';
+        relationItem.style.margin = '0.5rem 0';
+        
+        relationItem.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+                <span style="color: var(--accent-gold); font-weight: bold;">${relation.source}</span>
+                <span style="color: var(--text-muted);">→</span>
+                <span style="color: var(--accent-bronze); font-style: italic;">${relation.relation_type}</span>
+                <span style="color: var(--text-muted);">→</span>
+                <span style="color: var(--accent-gold); font-weight: bold;">${relation.target}</span>
+            </div>
+            <div style="color: var(--text-muted); font-size: 0.9rem;">
+                Strength: ${(relation.strength * 100).toFixed(0)}% | ${relation.description}
+            </div>
+        `;
+        
+        relationshipsList.appendChild(relationItem);
+    });
+}
+
+function displayEmotionNetwork(visualizationData) {
+    if (!visualizationData || !visualizationData.network) {
+        return;
+    }
+    
+    networkData = visualizationData.network;
+    const container = document.getElementById('emotionNetwork');
+    
+    // Convert data for vis.js with corrected sizing
+    const nodes = new vis.DataSet(networkData.nodes.map(node => {
+        // Debug: log the actual values
+        console.log(`Emotion: ${node.label}, Intensity: ${node.intensity}, Backend Size: ${node.size}`);
+        
+        // Calculate size based on intensity directly (ignore backend size)
+        const baseSize = 15;
+        const maxSize = 60;
+        const visSize = baseSize + (node.intensity * (maxSize - baseSize));
+        
+        // Calculate font size based on intensity
+        const fontSize = Math.max(10, Math.min(18, 10 + (node.intensity * 8)));
+        
+        return {
+            id: node.id,
+            label: node.label,
+            size: visSize,  // Use our calculated size: 15-60 range
+            color: {
+                background: node.color,
+                border: node.borderColor || '#ffffff',
+                highlight: {
+                    background: node.color,
+                    border: '#ffffff'
+                }
+            },
+            borderWidth: node.borderWidth || 3,
+            font: {
+                size: fontSize,
+                color: node.font ? node.font.color : '#ffffff',
+                strokeWidth: 2,
+                strokeColor: '#000000'
+            },
+            title: `${node.label}<br/>Intensity: ${(node.intensity * 100).toFixed(0)}%<br/>Sentiment: ${node.sentiment_score.toFixed(2)}<br/>Type: ${node.emotion_type}<br/>Size: ${visSize.toFixed(0)}`
+        };
+    }));
+    
+    const edges = new vis.DataSet(networkData.links.map(link => ({
+        from: link.source,
+        to: link.target,
+        label: link.label,
+        width: link.width || 2,
+        color: link.color || '#cccccc',
+        arrows: 'to',
+        title: link.description || link.label
+    })));
+    
+    const data = { nodes, edges };
+    
+    const options = {
+        physics: {
+            enabled: true,
+            stabilization: { iterations: 100 },
+            barnesHut: {
+                gravitationalConstant: -2000,
+                centralGravity: 0.1,
+                springLength: 200,
+                springConstant: 0.04,
+                damping: 0.09
+            }
+        },
+        nodes: {
+            shape: 'circle',
+            font: {
+                size: 14,
+                color: '#ffffff'
+            },
+            borderWidth: 3,
+            shadow: true,
+            scaling: {
+                min: 15,
+                max: 60
+            }
+        },
+        edges: {
+            font: {
+                size: 10,
+                color: '#ffffff'
+            },
+            arrows: {
+                to: { enabled: true, scaleFactor: 1 }
+            },
+            smooth: {
+                enabled: true,
+                type: 'continuous'
+            }
+        },
+        interaction: {
+            hover: true,
+            selectConnectedEdges: false
+        }
+    };
+    
+    emotionNetwork = new vis.Network(container, data, options);
+    
+    // Add click event
+    emotionNetwork.on('selectNode', function(params) {
+        if (params.nodes.length > 0) {
+            const nodeId = params.nodes[0];
+            const node = networkData.nodes.find(n => n.id === nodeId);
+            if (node) {
+                showNodeDetails(node);
+            }
+        }
+    });
+}
+
+function showNodeDetails(node) {
+    alert(`Emotion: ${node.label}\nIntensity: ${node.intensity}\nSentiment: ${node.sentiment_score}\nType: ${node.emotion_type}\nContext: ${node.context || 'N/A'}`);
+}
+
+function getSentimentColor(sentiment) {
+    if (sentiment >= 0.5) return '#00ff00';
+    if (sentiment >= 0.1) return '#7fff00';
+    if (sentiment >= -0.1) return '#ffff00';
+    if (sentiment >= -0.5) return '#ff7f00';
+    return '#ff0000';
+}
+
+function getEmotionTypeColor(type) {
+    const colors = {
+        'primary_emotion': '#ffffff',
+        'complex_emotion': '#00ffff',
+        'mood': '#ff00ff',
+        'emotion': '#cccccc'
+    };
+    return colors[type] || '#cccccc';
+}
+
+// Network controls
+function resetNetwork() {
+    if (emotionNetwork) {
+        emotionNetwork.fit();
+    }
+}
+
+function togglePhysics() {
+    if (emotionNetwork) {
+        physicsEnabled = !physicsEnabled;
+        emotionNetwork.setOptions({ physics: { enabled: physicsEnabled } });
+    }
+}
+
+function fitNetwork() {
+    if (emotionNetwork) {
+        emotionNetwork.fit({ animation: { duration: 1000 } });
+    }
+}
+
+// Tab switching
+function switchEmotionTab(tabName) {
+    document.querySelectorAll('.emotion-tab').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.emotion-tab-content').forEach(content => content.classList.remove('active'));
+    
+    document.querySelector(`[onclick="switchEmotionTab('${tabName}')"]`).classList.add('active');
+    document.getElementById(tabName + '-tab').classList.add('active');
+}
+
+// Download functions
+function downloadJSON() {
+    if (!currentResults) return;
+    const blob = new Blob([JSON.stringify(currentResults, null, 2)], { type: 'application/json' });
+    downloadBlob(blob, 'emotion_analysis.json');
+}
+
+function downloadReport() {
+    // Create a text report
+    if (!currentResults) return;
+    
+    let report = 'EMOTION ANALYSIS REPORT\n';
+    report += '='.repeat(30) + '\n\n';
+    report += `Overall Sentiment: ${currentResults.overall_sentiment.toFixed(2)}\n`;
+    report += `Total Emotions: ${currentResults.entities.length}\n`;
+    report += `Dominant Emotions: ${currentResults.dominant_emotions.join(', ')}\n\n`;
+    
+    report += 'DETECTED EMOTIONS:\n';
+    report += '-'.repeat(20) + '\n';
+    currentResults.entities.forEach(emotion => {
+        report += `• ${emotion.label.toUpperCase()}\n`;
+        report += `  Intensity: ${emotion.intensity.toFixed(2)} | Sentiment: ${emotion.sentiment_score.toFixed(2)}\n`;
+        if (emotion.context) report += `  Context: ${emotion.context}\n`;
+        report += '\n';
+    });
+    
+    const blob = new Blob([report], { type: 'text/plain' });
+    downloadBlob(blob, 'emotion_analysis_report.txt');
+}
+
+function downloadRDF() {
+    // This would need the RDF conversion from the backend
+    alert('RDF download would require backend RDF generation');
+}
+
+function copyResults() {
+    if (!currentResults) return;
+    const text = JSON.stringify(currentResults, null, 2);
+    navigator.clipboard.writeText(text).then(() => {
+        alert('Results copied to clipboard!');
+    });
+}
+
+function downloadBlob(blob, filename) {
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+}
+
+// Utility functions
+function showLoading() {
+    document.getElementById('loadingOverlay').style.display = 'flex';
+}
+
+function hideLoading() {
+    document.getElementById('loadingOverlay').style.display = 'none';
+}
+
+function showError(message) {
+    document.getElementById('errorMessage').textContent = message;
+    document.getElementById('errorSection').style.display = 'block';
+    document.getElementById('errorSection').scrollIntoView({ behavior: 'smooth' });
+}
+
+function hideError() {
+    document.getElementById('errorSection').style.display = 'none';
+}
+
+function hideResults() {
+    document.getElementById('resultsSection').style.display = 'none';
+}
+</script>
+{% endblock %}
