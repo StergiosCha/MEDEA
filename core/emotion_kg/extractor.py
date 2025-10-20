@@ -1,6 +1,6 @@
 """
 MEDEA-NEUMOUSA: LLM-Powered Emotion Knowledge Graph Extractor
-Extract emotional content using Gemini LLM with sentiment-based node sizing
+Extract emotional content using shared LLM service with sentiment-based node sizing
 """
 import os
 import json
@@ -11,20 +11,14 @@ import re
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass, field
 
-import google.generativeai as genai
 from dotenv import load_dotenv
+
+# ✅ USE SHARED LLM SERVICE
+from services.llm_service import llm_service
 
 load_dotenv()
 
 logger = logging.getLogger("MEDEA.EmotionKG")
-
-# Configure Gemini
-GEMINI_API_KEY = os.getenv("MEDEA_GEMINI_API_KEY")
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-2.0-flash-exp')
-else:
-    model = None
 
 @dataclass
 class EmotionEntity:
@@ -57,12 +51,14 @@ class EmotionGraph:
     dominant_emotions: List[str] = field(default_factory=list)
     sentiment_distribution: Dict[str, float] = field(default_factory=dict)
     visualization_data: Dict[str, Any] = field(default_factory=dict)
+
 class EmotionKGExtractor:
-    """LLM-powered emotion knowledge graph extractor"""
+    """LLM-powered emotion knowledge graph extractor using shared service"""
     
     def __init__(self):
-        if not model:
-            logger.warning("Gemini API key not configured for emotion extraction")
+        # Check if LLM service is available
+        if not llm_service.api_key:
+            logger.warning("LLM service not configured for emotion extraction")
     
     def create_emotion_extraction_prompt(self, text: str) -> str:
         """Create prompt for extracting emotions using LLM"""
@@ -156,26 +152,31 @@ sentiment_score: -1.0 to 1.0 (separate from intensity - affects color only)
 Return ONLY JSON, no markdown, no explanations"""
 
     async def extract_emotion_graph(self, text: str) -> EmotionGraph:
-        """Extract emotion knowledge graph from text using LLM"""
-        if not model:
-            logger.warning("Gemini model not available, using fallback")
+        """Extract emotion knowledge graph from text using LLM service"""
+        
+        # ✅ INITIALIZE LLM SERVICE IF NEEDED
+        if not llm_service._initialized:
+            await llm_service.initialize()
+        
+        if not llm_service.api_key:
+            logger.warning("LLM service not available, using fallback")
             return await self._fallback_extraction(text)
         
         try:
             # Create extraction prompt
             prompt = self.create_emotion_extraction_prompt(text)
             
-            # Call Gemini API
-            response = await model.generate_content_async(
-                prompt,
-                generation_config=genai.types.GenerationConfig(
-                    temperature=0.1,
-                    max_output_tokens=4000
-                )
+            logger.info(f"🎭 Extracting emotions from text ({len(text)} chars)")
+            
+            # ✅ CALL SHARED LLM SERVICE (with automatic model fallback)
+            response_text = await llm_service.generate_completion(
+                prompt=prompt,
+                temperature=0.1,
+                max_tokens=4000
             )
             
             # Parse JSON response
-            json_data = self._parse_json_response(response.text)
+            json_data = self._parse_json_response(response_text)
             
             if not json_data:
                 logger.warning("Failed to parse LLM response, using fallback")
@@ -184,6 +185,8 @@ Return ONLY JSON, no markdown, no explanations"""
             # Convert to internal format
             emotions = self._convert_to_emotion_entities(json_data.get('emotions', []))
             relations = self._convert_to_emotion_relations(json_data.get('relations', []))
+            
+            logger.info(f"✅ Extracted {len(emotions)} emotions, {len(relations)} relations")
             
             # Create visualization data
             visualization_data = self._create_visualization_data(emotions, relations)
@@ -202,7 +205,7 @@ Return ONLY JSON, no markdown, no explanations"""
             return await self._fallback_extraction(text)
 
     def _parse_json_response(self, response_text: str) -> Optional[Dict[str, Any]]:
-        """Parse JSON response from Gemini with error handling"""
+        """Parse JSON response from LLM with error handling"""
         try:
             # Clean up response
             json_text = response_text.strip()
@@ -388,6 +391,8 @@ Return ONLY JSON, no markdown, no explanations"""
 
     async def _fallback_extraction(self, text: str) -> EmotionGraph:
         """Fallback emotion extraction based on text prominence"""
+        logger.info("Using fallback emotion extraction (keyword-based)")
+        
         # Analyze text for emotion word frequency and emphasis
         emotion_patterns = {
             'anger': ['anger', 'angry', 'rage', 'furious', 'mad', 'irritated'],
@@ -445,6 +450,8 @@ Return ONLY JSON, no markdown, no explanations"""
         # Create visualization data
         visualization_data = self._create_visualization_data(entities, [])
         
+        logger.info(f"Fallback extraction: {len(entities)} emotions detected")
+        
         return EmotionGraph(
             entities=entities,
             relations=[],
@@ -492,18 +499,25 @@ Return ONLY JSON, no markdown, no explanations"""
 
     def get_status(self) -> Dict[str, Any]:
         """Get emotion extractor status"""
+        llm_status = llm_service.get_status()
+        
         return {
-            "api_configured": GEMINI_API_KEY is not None,
-            "model_ready": model is not None,
+            "api_configured": llm_status["api_configured"],
+            "model_ready": llm_status["initialized"],
+            "available_models": llm_status.get("available_models", []),
+            "primary_model": llm_status.get("primary_model"),
             "features": [
-                "LLM-powered emotion extraction",
+                "LLM-powered emotion extraction with multi-model fallback",
                 "Dominance-based node sizing (how much emotion dominates text)",
                 "Support for all emotions including negative ones",
                 "Emotion relationship analysis", 
                 "Interactive visualization data",
-                "RDF knowledge graph output"
-            ]
+                "RDF knowledge graph output",
+                "Automatic fallback to keyword-based extraction"
+            ],
+            "llm_service": llm_status
         }
+
 # Export functions
 def export_emotion_graph_json(emotion_graph: EmotionGraph) -> str:
     """Export emotion graph as JSON"""
@@ -555,8 +569,17 @@ def create_emotion_analysis_report(emotion_graph: EmotionGraph) -> str:
     report.append(f"Dominant emotions: {', '.join(emotion_graph.dominant_emotions)}")
     report.append("")
     
+    # Sentiment distribution
+    report.append("SENTIMENT DISTRIBUTION")
+    report.append("-" * 20)
+    dist = emotion_graph.sentiment_distribution
+    report.append(f"Positive: {dist.get('positive', 0):.1%}")
+    report.append(f"Negative: {dist.get('negative', 0):.1%}")
+    report.append(f"Neutral: {dist.get('neutral', 0):.1%}")
+    report.append("")
+    
     # Individual emotions
-    report.append("DETECTED EMOTIONS")
+    report.append("DETECTED EMOTIONS (by dominance)")
     report.append("-" * 20)
     
     # Sort by intensity (highest first)
@@ -564,10 +587,23 @@ def create_emotion_analysis_report(emotion_graph: EmotionGraph) -> str:
     
     for emotion in sorted_emotions:
         report.append(f"• {emotion.label.upper()}")
-        report.append(f"  Intensity: {emotion.intensity:.2f} | Sentiment: {emotion.sentiment_score:.2f}")
+        report.append(f"  Dominance: {emotion.intensity:.2f} | Sentiment: {emotion.sentiment_score:.2f}")
         report.append(f"  Type: {emotion.emotion_type}")
         if emotion.context:
             report.append(f"  Context: {emotion.context[:100]}...")
+        if emotion.triggers:
+            report.append(f"  Triggers: {', '.join(emotion.triggers[:3])}")
         report.append("")
+    
+    # Relations
+    if emotion_graph.relations:
+        report.append("EMOTION RELATIONSHIPS")
+        report.append("-" * 20)
+        for relation in emotion_graph.relations:
+            report.append(f"• {relation.source} --[{relation.relation_type}]--> {relation.target}")
+            report.append(f"  Strength: {relation.strength:.2f}")
+            if relation.description:
+                report.append(f"  {relation.description}")
+            report.append("")
     
     return "\n".join(report)
