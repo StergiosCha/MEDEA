@@ -29,7 +29,7 @@ logger = logging.getLogger("MEDEA.KGExtractor")
 GEMINI_API_KEY = os.getenv("MEDEA_GEMINI_API_KEY")
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-2.0-flash')
+    model = genai.GenerativeModel('gemini-2.0-flash-exp')
 else:
     model = None
 
