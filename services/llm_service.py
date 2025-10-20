@@ -22,17 +22,22 @@ class LLMService:
         self.models: List[Tuple[str, Any]] = []
         self._initialized = False
         
-        # Model fallback chain (best to worst)
+        # ✅ OFFICIAL GEMINI MODEL FALLBACK CHAIN (as of Oct 2025)
         self.model_names = [
-            "gemini-2.5-flash",
-            "gemini-2.5-flash-lite"
-            "gemini-2.0-flash-lite-001",
-            "gemini-2.0-flash-exp",
-            "gemini-1.5-flash",
-            "gemini-2.5-flash-lite",
-            "gemini-2.0-flash-lite-001",
-            "gemini-2.0-flash-001",
-            "gemini-1.5-flash-002"
+            # Tier 1: Latest and most capable
+            "gemini-2.5-flash",              # Best price-performance, thinking capable
+            "gemini-2.5-pro",                # Most advanced, reasoning over complex problems
+            
+            # Tier 2: Fast and efficient
+            "gemini-2.5-flash-lite",         # Fastest, optimized for cost-efficiency
+            
+            # Tier 3: Second generation workhorses (fallback)
+            "gemini-2.0-flash",              # 1M token context, reliable
+            "gemini-2.0-flash-lite",         # Smaller, faster 2.0
+            
+            # Tier 4: First generation (final fallback)
+            "gemini-1.5-flash",              # Older but stable
+            "gemini-1.5-pro",                # Older pro model
         ]
     
     async def initialize(self) -> None:
@@ -41,7 +46,7 @@ class LLMService:
             return
             
         if not self.api_key:
-            logger.warning("No Gemini API key configured")
+            logger.warning("❌ No Gemini API key configured")
             return
         
         try:
@@ -52,27 +57,27 @@ class LLMService:
                 try:
                     model = genai.GenerativeModel(model_name)
                     self.models.append((model_name, model))
-                    logger.info(f"Loaded model: {model_name}")
+                    logger.info(f"✅ Loaded model: {model_name}")
                 except Exception as e:
-                    logger.warning(f"Failed to load model {model_name}: {e}")
+                    logger.warning(f"⚠️ Failed to load model {model_name}: {e}")
             
             if not self.models:
-                logger.error("No Gemini models could be loaded")
+                logger.error("❌ No Gemini models could be loaded")
             else:
-                logger.info(f"LLM Service initialized with {len(self.models)} models")
+                logger.info(f"🎯 LLM Service initialized with {len(self.models)} models")
                 
             self._initialized = True
             
         except Exception as e:
-            logger.error(f"Failed to initialize LLM service: {e}")
+            logger.error(f"💀 Failed to initialize LLM service: {e}")
             raise
     
-    async def generate(
+    async def generate_completion(
         self, 
         prompt: str, 
         temperature: float = 0.2, 
         max_tokens: int = 1024,
-        retry_count: int = 3
+        retry_count: int = 2  # Reduced retries per model since we have multiple models
     ) -> str:
         """
         Generate content with automatic model fallbacks
@@ -101,7 +106,7 @@ class LLMService:
         for model_name, model in self.models:
             for attempt in range(retry_count):
                 try:
-                    logger.debug(f"Trying {model_name} (attempt {attempt + 1})")
+                    logger.debug(f"🔄 Trying {model_name} (attempt {attempt + 1}/{retry_count})")
                     
                     response = await model.generate_content_async(
                         prompt,
@@ -112,23 +117,35 @@ class LLMService:
                     )
                     
                     if response.text and response.text.strip():
-                        logger.info(f"Success with {model_name} (attempt {attempt + 1})")
+                        logger.info(f"✅ Success with {model_name} (attempt {attempt + 1})")
                         return response.text.strip()
                     else:
-                        logger.warning(f"Empty response from {model_name}")
+                        logger.warning(f"⚠️ Empty response from {model_name}")
                         continue
                         
                 except Exception as e:
-                    logger.warning(f"{model_name} attempt {attempt + 1} failed: {e}")
+                    error_str = str(e).lower()
+                    
+                    # Check for quota/rate limit errors
+                    if any(err in error_str for err in ["quota", "429", "rate limit", "resource exhausted"]):
+                        logger.warning(f"💀 {model_name} quota exceeded, trying next model...")
+                        break  # Skip remaining retries for this model, move to next
+                    
+                    logger.warning(f"⚠️ {model_name} attempt {attempt + 1} failed: {e}")
                     last_error = e
                     
                     # Wait before retry (exponential backoff)
                     if attempt < retry_count - 1:
-                        await asyncio.sleep(2 ** attempt)
+                        await asyncio.sleep(1.5 ** attempt)
                     continue
         
         # If all models and retries failed
-        raise Exception(f"All LLM models failed after {retry_count} attempts each. Last error: {last_error}")
+        raise Exception(f"All {len(self.models)} LLM models failed after {retry_count} attempts each. Last error: {last_error}")
+    
+    # Alias for compatibility
+    async def generate(self, *args, **kwargs) -> str:
+        """Alias for generate_completion"""
+        return await self.generate_completion(*args, **kwargs)
     
     async def generate_json(
         self, 
@@ -150,7 +167,7 @@ class LLMService:
         Raises:
             Exception: If generation or JSON parsing fails
         """
-        response_text = await self.generate(prompt, temperature, max_tokens)
+        response_text = await self.generate_completion(prompt, temperature, max_tokens)
         
         # Clean and parse JSON response
         import re
@@ -183,7 +200,13 @@ class LLMService:
             "total_models": len(self.models),
             "available_models": [name for name, _ in self.models],
             "primary_model": self.models[0][0] if self.models else None,
-            "model_chain": self.model_names
+            "fallback_chain": self.model_names,
+            "model_tiers": {
+                "tier_1_latest": ["gemini-2.5-flash", "gemini-2.5-pro"],
+                "tier_2_fast": ["gemini-2.5-flash-lite"],
+                "tier_3_workhorse": ["gemini-2.0-flash", "gemini-2.0-flash-lite"],
+                "tier_4_legacy": ["gemini-1.5-flash", "gemini-1.5-pro"]
+            }
         }
     
     async def health_check(self) -> Dict[str, Any]:
@@ -213,10 +236,17 @@ class LLMService:
                 }
                 
             except Exception as e:
-                health_results[model_name] = {
-                    "status": "unhealthy",
-                    "error": str(e)
-                }
+                error_str = str(e).lower()
+                if any(err in error_str for err in ["quota", "429", "rate limit"]):
+                    health_results[model_name] = {
+                        "status": "quota_exceeded",
+                        "error": "Quota exhausted"
+                    }
+                else:
+                    health_results[model_name] = {
+                        "status": "unhealthy",
+                        "error": str(e)
+                    }
         
         return health_results
 
