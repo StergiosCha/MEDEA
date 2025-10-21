@@ -29,8 +29,14 @@ logger = logging.getLogger("MEDEA.KGExtractor")
 GEMINI_API_KEY = os.getenv("MEDEA_GEMINI_API_KEY")
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-2.5-flash')
+    try:
+        model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        logger.info(f"Initialized Gemini model successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize model: {e}")
+        model = None
 else:
+    logger.warning("GEMINI_API_KEY not found")
     model = None
 
 from enum import Enum
@@ -47,7 +53,6 @@ class DynamicKGExtractor:
     def detect_text_domain(self, text: str) -> TextDomain:
         text_lower = text.lower()
         
-        # Simple keyword-based detection
         if any(word in text_lower for word in ['war', 'battle', 'empire', 'king', 'ancient', 'bc', 'ad']):
             return TextDomain.HISTORY
         elif any(word in text_lower for word in ['character', 'story', 'said', 'replied']):
@@ -63,45 +68,43 @@ class DynamicKGExtractor:
         domain = self.detect_text_domain(text)
         
         guidance = {
-            TextDomain.HISTORY: "Focus on historical figures, events, places, dates, and political relationships",
-            TextDomain.LITERATURE: "Focus on characters, dialogue, emotions, plot events, and relationships",
-            TextDomain.SCIENCE: "Focus on concepts, processes, experiments, measurements, and causal relationships",
-            TextDomain.POLITICAL: "Focus on leaders, policies, institutions, and governance relationships",
-            TextDomain.GENERAL: "Extract any meaningful entities and relationships present in the text"
+            TextDomain.HISTORY: "historical figures, events, places, dates, political relationships",
+            TextDomain.LITERATURE: "characters, dialogue, emotions, plot events, relationships",
+            TextDomain.SCIENCE: "concepts, processes, experiments, measurements, causal relationships",
+            TextDomain.POLITICAL: "leaders, policies, institutions, governance relationships",
+            TextDomain.GENERAL: "meaningful entities and relationships"
         }
         
-        # Mode-specific instructions
         mode_instructions = {
-            "BASIC": "Extract only entities and relationships explicitly present in the text.",
-            "RAG_ENHANCED": "Use background knowledge to enrich entities with additional properties and context. Add implied relationships based on domain knowledge.",
-            "EXTERNAL_ENRICHED": "Maximum knowledge integration. Add comprehensive properties, alternative names, historical context, and all possible relationships from your knowledge base."
+            "BASIC": "Extract entities and relationships that are explicitly stated.",
+            "RAG_ENHANCED": "Include background knowledge to add context and implied relationships.",
+            "EXTERNAL_ENRICHED": "Add comprehensive properties, alternative names, and historical context."
         }
         
-        return f"""Extract entities and relationships from this text. Return ONLY valid JSON.
+        # Unique prompt to avoid recitation
+        return f"""Knowledge Graph Extraction Task
 
-    TEXT: {text}
+Analyze the text below and identify entities and their relationships.
 
-    DOMAIN GUIDANCE: {guidance[domain]}
-    MODE: {mode_instructions.get(mode, mode_instructions["BASIC"])}
+Text to analyze:
+{text}
 
-    INSTRUCTIONS:
-    1. Use EXACT SAME IDs in relations as in entities list
-    2. Create entity types that fit the content (Person, Place, Event, Concept, Organization, etc.)
-    3. Use relationship names that describe actual connections in the text
-    4. Extract only what actually exists in the text
+Focus areas: {guidance[domain]}
+Extraction mode: {mode_instructions.get(mode, mode_instructions["BASIC"])}
 
-    Return this JSON format:
-    {{
-        "entities": [
-            {{"id": "descriptive_id", "label": "Entity Name", "type": "EntityType", "properties": {{}}}},
-            {{"id": "another_id", "label": "Another Entity", "type": "AnotherType", "properties": {{}}}}
-        ],
-        "relations": [
-            {{"subject": "descriptive_id", "predicate": "relationship_type", "object": "another_id", "description": "brief description"}}
-        ]
-    }}
+Your output must be valid JSON only, following this structure:
+{{
+    "entities": [
+        {{"id": "unique_identifier", "label": "Entity Name", "type": "EntityType", "properties": {{}}}}
+    ],
+    "relations": [
+        {{"subject": "entity_id", "predicate": "relationship_type", "object": "entity_id", "description": "explanation"}}
+    ]
+}}
 
-JSON only, no explanations."""
+Important: Use the same IDs in relations as in the entities list.
+Output only JSON, no other text."""
+
 class KGExtractionMode(str, Enum):
     """Knowledge graph extraction modes"""
     BASIC = "basic"
@@ -158,7 +161,6 @@ class KGExtractionRequest:
 @dataclass
 class KGExtractionResult:
     """Enhanced result of knowledge graph extraction"""
-    # Original fields
     rdf_content: str
     format: KGOutputFormat
     entity_count: int
@@ -167,21 +169,18 @@ class KGExtractionResult:
     extraction_notes: str
     processing_time: float
     chunks_processed: int = 1
-    
-    # New structured fields
     entities: List[Entity] = field(default_factory=list)
     relations: List[Relation] = field(default_factory=list)
     semantic_network: Optional[SemanticNetwork] = None
     summary: Dict[str, Any] = field(default_factory=dict)
     visualization_data: Dict[str, Any] = field(default_factory=dict)
-    coherence_analysis: Optional[Dict[str, Any]] = None  # ADD THIS LINE
+    coherence_analysis: Optional[Dict[str, Any]] = None
 
 class ExternalKnowledgeEnricher:
     def __init__(self):
         self.session = None
     
     async def __aenter__(self):
-        # Add proper headers that Wikipedia expects
         headers = {
             'User-Agent': 'MEDEA-NEUMOUSA/1.0 (https://yoursite.com/contact; your-email@domain.com) aiohttp/3.8.0'
         }
@@ -198,7 +197,6 @@ class ExternalKnowledgeEnricher:
     async def enrich_entity(self, entity_label: str, entity_type: str) -> Dict[str, Any]:
         """Get external data for an entity"""
         try:
-            # Clean the entity label for better Wikipedia matching
             clean_label = entity_label.replace('æ', 'ae').replace('œ', 'oe')
             
             params = {
@@ -233,6 +231,7 @@ class ExternalKnowledgeEnricher:
         except Exception as e:
             logger.warning(f"External enrichment failed for {entity_label}: {e}")
             return {}
+
 class SemanticNetworkBuilder:
     """Build semantic network from entities and relations"""
     
@@ -241,11 +240,8 @@ class SemanticNetworkBuilder:
         nodes = []
         edges = []
         
-        # Create nodes from entities
         entity_map = {entity.id: entity for entity in entities}
         entity_ids = {entity.id for entity in entities}
-        
-        # Also create label-to-id mapping for fuzzy matching
         label_to_id = {entity.label.lower(): entity.id for entity in entities}
         
         for entity in entities:
@@ -260,39 +256,32 @@ class SemanticNetworkBuilder:
             }
             nodes.append(node)
         
-        # Create edges from relations with improved matching
         relation_counts = defaultdict(int)
         
         for relation in relations:
             source_id = relation.subject
             target_id = relation.object
             
-            # Try exact ID match first
             if source_id not in entity_ids:
-                # Try label matching
                 source_label = source_id.lower()
                 if source_label in label_to_id:
                     source_id = label_to_id[source_label]
                 else:
-                    # Try partial matching
                     for label, eid in label_to_id.items():
                         if source_label in label or label in source_label:
                             source_id = eid
                             break
             
             if target_id not in entity_ids:
-                # Try label matching
                 target_label = target_id.lower()
                 if target_label in label_to_id:
                     target_id = label_to_id[target_label]
                 else:
-                    # Try partial matching
                     for label, eid in label_to_id.items():
                         if target_label in label or label in target_label:
                             target_id = eid
                             break
             
-            # Only create edge if both source and target are valid entities
             if source_id in entity_ids and target_id in entity_ids:
                 edge = {
                     'source': source_id,
@@ -308,10 +297,7 @@ class SemanticNetworkBuilder:
             else:
                 logger.debug(f"Skipping relation - source: {source_id}, target: {target_id} not found in entities")
         
-        # Calculate clusters
         clusters = self._identify_clusters(nodes, edges)
-        
-        # Calculate network metrics
         metrics = self._calculate_metrics(nodes, edges, relation_counts)
         
         return SemanticNetwork(
@@ -319,7 +305,8 @@ class SemanticNetworkBuilder:
             edges=edges,
             clusters=clusters,
             metrics=metrics
-    )
+        )
+    
     def _calculate_node_size(self, entity: Entity, relations: List[Relation]) -> int:
         """Calculate node size based on connectivity"""
         connections = sum(1 for r in relations if r.subject == entity.id or r.object == entity.id)
@@ -328,18 +315,13 @@ class SemanticNetworkBuilder:
     def _get_node_color(self, entity_type: str) -> str:
         """Enhanced color mapping for spatial-emotional entities"""
         color_map = {
-            # Spatial entities
             'LOC': '#2ecc71',
             'GPE': '#27ae60', 
             'PER': '#3498db',
             'NORP': '#5dade2',
-            
-            # Emotional entities
             'ExperientialAffect': '#e74c3c',
             'AppraisedAffect': '#f39c12',
             'IdentityAffect': '#8e44ad',
-            
-            # Traditional types
             'Person': '#e74c3c',
             'Event': '#3498db',
             'Location': '#2ecc71',
@@ -369,13 +351,13 @@ class SemanticNetworkBuilder:
         predicate_lower = predicate.lower()
         
         if any(term in predicate_lower for term in ['experienced_by', 'triggered_by']):
-            return '#e74c3c'  # Red for emotional relations
+            return '#e74c3c'
         elif any(term in predicate_lower for term in ['travels_to', 'inhabits']):
-            return '#2ecc71'  # Green for spatial relations
+            return '#2ecc71'
         elif any(term in predicate_lower for term in ['speaks_to', 'tells']):
-            return '#3498db'  # Blue for dialogue
+            return '#3498db'
         elif any(term in predicate_lower for term in ['causes', 'leads_to']):
-            return '#f39c12'  # Orange for causation
+            return '#f39c12'
         else:
             return '#7f8c8d'
     
@@ -443,6 +425,7 @@ class TextChunker:
             chunks.append(current_chunk.strip())
         
         return chunks
+
 class MedeaKGExtractor:
     """
     MEDEA-NEUMOUSA Knowledge Graph Extractor
@@ -454,9 +437,11 @@ class MedeaKGExtractor:
         self.network_builder = SemanticNetworkBuilder()
         self.dynamic_extractor = DynamicKGExtractor()
         self.external_enricher = ExternalKnowledgeEnricher()
+    
     def create_json_extraction_prompt(self, text: str, request: KGExtractionRequest) -> str:
         """Dynamic prompt that adapts to any text domain with mode support"""
         return self.dynamic_extractor.create_dynamic_prompt(text, request.mode.value)
+    
     async def extract_knowledge_graph(self, request: KGExtractionRequest) -> KGExtractionResult:
         """Extract knowledge graph using enhanced spatial-emotional approach"""
         if not model:
@@ -473,7 +458,6 @@ class MedeaKGExtractor:
     async def _extract_with_json_approach(self, request: KGExtractionRequest, start_time: float) -> KGExtractionResult:
         """Extract using enhanced JSON-based prompting with better error handling"""
         
-        # Handle text chunking for large inputs
         if len(request.text) > request.chunk_size:
             chunks = self.chunker.chunk_text_by_sentences(request.text, request.chunk_size)
             logger.info(f"Processing {len(chunks)} chunks")
@@ -488,61 +472,86 @@ class MedeaKGExtractor:
         for i, chunk in enumerate(chunks, 1):
             logger.info(f"Processing chunk {i}/{len(chunks)}")
             
-            # Create enhanced extraction prompt
-            prompt = self.create_json_extraction_prompt(chunk, request)
+            response_text = None
+            strategies = [
+                ("standard", 0.4, self.create_json_extraction_prompt(chunk, request)),
+                ("higher_temp", 0.7, self.create_json_extraction_prompt(chunk, request)),
+                ("abstract", 0.6, self._create_abstract_extraction_prompt(chunk, request)),
+            ]
             
-            try:
-                # Call Gemini API
-                response = await model.generate_content_async(
-                    prompt,
-                    generation_config=genai.types.GenerationConfig(
-                        temperature=0.2,
-                        max_output_tokens=4000
+            for strategy_name, temperature, prompt in strategies:
+                logger.info(f"Trying strategy: {strategy_name} (temp={temperature})")
+                
+                try:
+                    response = await model.generate_content_async(
+                        prompt,
+                        generation_config=genai.types.GenerationConfig(
+                            temperature=temperature,
+                            max_output_tokens=8192,
+                            top_p=0.95,
+                            top_k=40
+                        ),
+                        safety_settings=[
+                            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+                            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+                            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+                            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
+                        ]
                     )
-                )
-                
-                # Parse JSON response with enhanced error handling
-                json_data = self._parse_json_response(response.text)
-                
-                if json_data:
-                    # Enhance with additional pattern-based extraction
-                    json_data = self._enhance_spatial_emotional_analysis(json_data, chunk)
                     
-                    # Add external enrichment for EXTERNAL_ENRICHED mode
-                  
-                    # Collect data from this chunk
-                    all_entities.extend(json_data.get('entities', []))
-                    all_relations.extend(json_data.get('relations', []))
-                    all_spatial_emotions.extend(json_data.get('spatial_emotions', []))
-                    all_rhetorical_analysis.extend(json_data.get('rhetorical_analysis', []))
-            except Exception as e:
-                logger.error(f"Error processing chunk {i}: {e}")
+                    finish_reason = self._get_finish_reason_code(response)
+                    logger.info(f"Strategy {strategy_name}: finish_reason={finish_reason}")
+                    
+                    response_text = self._extract_response_text(response)
+                    
+                    if response_text and len(response_text) > 10:
+                        logger.info(f"Success with strategy: {strategy_name}, got {len(response_text)} chars")
+                        break
+                    else:
+                        logger.warning(f"Strategy {strategy_name} failed, trying next...")
+                        await asyncio.sleep(0.5)
+                        
+                except Exception as e:
+                    logger.error(f"Strategy {strategy_name} error: {e}")
+                    continue
+            
+            if not response_text:
+                logger.error(f"All strategies failed for chunk {i}, skipping")
                 continue
+            
+            logger.info(f"Received response text of length {len(response_text)}")
+            
+            json_data = self._parse_json_response(response_text)
+            
+            if json_data:
+                json_data = self._enhance_spatial_emotional_analysis(json_data, chunk)
+                
+                all_entities.extend(json_data.get('entities', []))
+                all_relations.extend(json_data.get('relations', []))
+                all_spatial_emotions.extend(json_data.get('spatial_emotions', []))
+                all_rhetorical_analysis.extend(json_data.get('rhetorical_analysis', []))
+                
+                logger.info(f"Chunk {i}: Extracted {len(json_data.get('entities', []))} entities, {len(json_data.get('relations', []))} relations")
+            else:
+                logger.warning(f"Failed to parse JSON for chunk {i}")
         
-        # Convert to internal format
         entities = self._convert_json_to_entities(all_entities)
         relations = self._convert_json_to_relations(all_relations)
+        
         if request.mode == KGExtractionMode.EXTERNAL_ENRICHED:
             entities = await self._enrich_entities_external(entities)
-        # Create RDF content from structured data
-        rdf_content = self._create_rdf_from_structured_data(entities, relations)
         
-        # Build semantic network
+        rdf_content = self._create_rdf_from_structured_data(entities, relations)
         semantic_network = self._build_semantic_network_safe(entities, relations)
         
-        # Convert to requested format if not Turtle
         if request.output_format != KGOutputFormat.TURTLE:
             rdf_content = self._convert_format(rdf_content, request.output_format)
         
         processing_time = time.time() - start_time
         
-        # Create enhanced summary with spatial-emotional data
         summary = self._create_enhanced_summary(entities, relations, semantic_network, all_spatial_emotions)
-        
-        # Create visualization data
         visualization_data = self._create_spatial_emotion_visualization(semantic_network)
         
-        # Create the result object
         result = KGExtractionResult(
             rdf_content=rdf_content,
             format=request.output_format,
@@ -559,12 +568,40 @@ class MedeaKGExtractor:
             visualization_data=visualization_data
         )
         
-        # ADD COHERENCE ANALYSIS
-        if request.mode != KGExtractionMode.BASIC:  # Only for advanced modes
+        if request.mode != KGExtractionMode.BASIC:
             logger.info("Running narrative coherence analysis...")
             result.coherence_analysis = self.analyze_narrative_coherence(result)
         
         return result
+    
+    def _get_finish_reason_code(self, response) -> int:
+        """Get the numeric finish reason code"""
+        try:
+            if hasattr(response, 'candidates') and response.candidates and len(response.candidates) > 0:
+                candidate = response.candidates[0]
+                if hasattr(candidate, 'finish_reason'):
+                    return int(candidate.finish_reason)
+        except Exception as e:
+            logger.debug(f"Could not get finish reason: {e}")
+        return -1
+    
+    def _create_abstract_extraction_prompt(self, text: str, request: KGExtractionRequest) -> str:
+        """Create a completely different prompt style to avoid recitation"""
+        return f"""Please help me structure information from this text.
+
+Text:
+{text}
+
+I need you to identify:
+1. Important entities (people, places, things, concepts, events)
+2. How these entities are connected
+
+Format your response as JSON with "entities" and "relations" arrays.
+Each entity needs: id, label, type, properties
+Each relation needs: subject, predicate, object, description
+
+Respond with JSON only."""
+    
     async def _enrich_entities_external(self, entities: List[Entity]) -> List[Entity]:
         """Enrich Entity objects with external data"""
         enriched_count = 0
@@ -588,18 +625,108 @@ class MedeaKGExtractor:
         
         logger.info(f"External enrichment complete: {enriched_count}/{len(entities)} entities enriched")
         return entities
+    
+    def _extract_response_text(self, response) -> str:
+        """Extract text from Gemini response, handling complex structures and empty responses"""
+        try:
+            if not hasattr(response, 'candidates'):
+                logger.error("Response has no candidates attribute")
+                return ""
+            
+            if not response.candidates:
+                logger.error("Response candidates is empty or None")
+                return ""
+            
+            if len(response.candidates) == 0:
+                logger.error("Response has no candidates")
+                return ""
+            
+            candidate = response.candidates[0]
+            
+            if hasattr(candidate, 'finish_reason'):
+                finish_reason_str = str(candidate.finish_reason)
+                logger.info(f"Finish reason: {finish_reason_str}")
+                if finish_reason_str not in ["STOP", "1", "FinishReason.STOP"]:
+                    logger.warning(f"Response may be incomplete or blocked: {finish_reason_str}")
+                    if hasattr(candidate, 'safety_ratings'):
+                        logger.warning(f"Safety ratings: {candidate.safety_ratings}")
+            
+            if not hasattr(candidate, 'content'):
+                logger.error("Candidate has no content attribute")
+                return ""
+            
+            if not candidate.content:
+                logger.error("Candidate content is None")
+                return ""
+            
+            if not hasattr(candidate.content, 'parts'):
+                logger.error("Content has no parts attribute")
+                return ""
+            
+            if not candidate.content.parts:
+                logger.error("Content parts is None or empty")
+                return ""
+            
+            if len(candidate.content.parts) == 0:
+                logger.error("Response content has no parts")
+                return ""
+            
+            text_parts = []
+            for part in candidate.content.parts:
+                try:
+                    if hasattr(part, 'text') and part.text:
+                        text_parts.append(part.text)
+                except Exception as part_error:
+                    logger.warning(f"Error accessing part text: {part_error}")
+            
+            if text_parts:
+                return ' '.join(text_parts)
+            else:
+                logger.error("No text found in response parts")
+                return ""
+        
+        except Exception as e:
+            logger.error(f"Unexpected error extracting response text: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return ""
+    
+    def debug_response_structure(self, response):
+        """Debug helper to understand response structure"""
+        logger.info("=== Response Structure Debug ===")
+        logger.info(f"Response type: {type(response)}")
+        logger.info(f"Has 'text' attr: {hasattr(response, 'text')}")
+        logger.info(f"Has 'candidates' attr: {hasattr(response, 'candidates')}")
+        
+        if hasattr(response, 'candidates'):
+            logger.info(f"Candidates count: {len(response.candidates) if response.candidates else 0}")
+            if response.candidates and len(response.candidates) > 0:
+                candidate = response.candidates[0]
+                logger.info(f"Candidate finish_reason: {getattr(candidate, 'finish_reason', 'N/A')}")
+                logger.info(f"Candidate has content: {hasattr(candidate, 'content')}")
+                if hasattr(candidate, 'content') and candidate.content:
+                    logger.info(f"Content has parts: {hasattr(candidate.content, 'parts')}")
+                    if hasattr(candidate.content, 'parts'):
+                        logger.info(f"Parts count: {len(candidate.content.parts) if candidate.content.parts else 0}")
+                if hasattr(candidate, 'safety_ratings'):
+                    logger.info(f"Safety ratings: {candidate.safety_ratings}")
+        
+        logger.info("=== End Debug ===")
+    
     def _parse_json_response(self, response) -> Optional[Dict[str, Any]]:
         """Parse JSON response from Gemini with robust error handling"""
         try:
-            # Extract text from response
             if isinstance(response, str):
                 response_text = response
             else:
                 response_text = self._extract_response_text(response)
             
+            if not response_text or response_text.strip() == "":
+                logger.warning("Empty response text received")
+                return None
+            
             json_text = response_text.strip()
             
-            # Remove markdown code blocks
             if json_text.startswith('```json'):
                 json_text = json_text[7:]
             elif json_text.startswith('```'):
@@ -608,36 +735,41 @@ class MedeaKGExtractor:
                 json_text = json_text[:-3]
             
             json_text = json_text.strip()
+            
+            if not json_text:
+                logger.warning("No content after stripping markdown")
+                return None
+            
             json_text = self._fix_json_issues(json_text)
             
-            return json.loads(json_text)
+            parsed = json.loads(json_text)
+            logger.info(f"Successfully parsed JSON with {len(parsed.get('entities', []))} entities")
+            return parsed
             
         except json.JSONDecodeError as e:
             logger.warning(f"JSON parsing failed: {e}")
-            return self._extract_structured_data_fallback(response_text if 'response_text' in locals() else str(response))
+            logger.debug(f"Failed JSON text: {json_text[:500] if 'json_text' in locals() else 'N/A'}")
+            if 'response_text' in locals() and response_text:
+                return self._extract_structured_data_fallback(response_text)
+            return None
         except Exception as e:
             logger.error(f"Response parsing failed: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             return None
+    
     def _fix_json_issues(self, json_text: str) -> str:
         """Fix common JSON formatting issues"""
-        # Remove trailing commas before closing brackets/braces
         json_text = re.sub(r',(\s*[}\]])', r'\1', json_text)
-        
-        # Fix unescaped quotes inside string values
-        # This is a simple approach - replace any \" with \"
         json_text = json_text.replace('\\"', '"')
         
-        # Remove any stray quotes that might break parsing
         lines = json_text.split('\n')
         fixed_lines = []
         
         for line in lines:
-            # Count quotes in the line
             quote_count = line.count('"')
             
-            # If odd number of quotes, try to fix
             if quote_count % 2 != 0:
-                # Find the last quote and see if we need to close the string
                 if '"description":' in line or '"label":' in line:
                     if not line.rstrip().endswith('"') and not line.rstrip().endswith('",'):
                         line = line.rstrip() + '"'
@@ -648,10 +780,10 @@ class MedeaKGExtractor:
 
     def _extract_structured_data_fallback(self, response_text: str) -> Optional[Dict[str, Any]]:
         """Extract structured data when JSON parsing fails completely"""
+        logger.info("Using fallback structured data extraction")
         entities = []
         relations = []
         
-        # Extract entities using robust patterns
         entity_patterns = [
             r'"id":\s*"([^"]+)"[^}]*"label":\s*"([^"]+)"[^}]*"type":\s*"([^"]+)"',
             r'"label":\s*"([^"]+)"[^}]*"type":\s*"([^"]+)"[^}]*"id":\s*"([^"]+)"'
@@ -673,7 +805,6 @@ class MedeaKGExtractor:
                         "properties": {}
                     })
         
-        # Extract relations using robust patterns
         relation_patterns = [
             r'"subject":\s*"([^"]+)"[^}]*"predicate":\s*"([^"]+)"[^}]*"object":\s*"([^"]+)"'
         ]
@@ -691,6 +822,7 @@ class MedeaKGExtractor:
                     })
         
         if entities or relations:
+            logger.info(f"Fallback extraction found {len(entities)} entities and {len(relations)} relations")
             return {
                 "entities": entities,
                 "relations": relations,
@@ -698,11 +830,11 @@ class MedeaKGExtractor:
                 "rhetorical_analysis": []
             }
         
+        logger.warning("Fallback extraction found no data")
         return None
 
     def _enhance_spatial_emotional_analysis(self, json_data: Dict[str, Any], text: str) -> Dict[str, Any]:
         """Simple enhancement without hardcoded patterns"""
-        # Just return the data as-is for now - no hardcoded enhancements
         return json_data
 
     def _convert_json_to_entities(self, json_entities: List[Dict]) -> List[Entity]:
@@ -722,12 +854,13 @@ class MedeaKGExtractor:
                     confidence=0.8
                 )
                 entities.append(entity)
-                logger.info(f"Created entity: {entity_id} -> {entity_label}")
+                logger.debug(f"Created entity: {entity_id} -> {entity_label}")
                 
             except Exception as e:
                 logger.warning(f"Could not convert entity: {entity_data}, error: {e}")
                 continue
         
+        logger.info(f"Converted {len(entities)} entities")
         return entities
 
     def _convert_json_to_relations(self, json_relations: List[Dict]) -> List[Relation]:
@@ -747,12 +880,13 @@ class MedeaKGExtractor:
                     confidence=0.8
                 )
                 relations.append(relation)
-                logger.info(f"Created relation: {subject} -> {predicate} -> {obj}")
+                logger.debug(f"Created relation: {subject} -> {predicate} -> {obj}")
                 
             except Exception as e:
                 logger.warning(f"Could not convert relation: {relation_data}, error: {e}")
                 continue
         
+        logger.info(f"Converted {len(relations)} relations")
         return relations
 
     def _create_rdf_from_structured_data(self, entities: List[Entity], relations: List[Relation]) -> str:
@@ -764,22 +898,23 @@ class MedeaKGExtractor:
             ""
         ]
         
-        # Add entities
         for entity in entities:
-            rdf_lines.append(f"{entity.id} a {entity.type} ;")
+            safe_id = entity.id.replace(' ', '_').replace(':', '_')
+            rdf_lines.append(f"ste:{safe_id} a ste:{entity.type} ;")
             rdf_lines.append(f'    rdfs:label "{entity.label}" .')
             
-            # Add properties
             for prop_key, prop_value in entity.properties.items():
                 if isinstance(prop_value, str) and prop_value:
-                    clean_value = prop_value.replace('"', '\\"')
+                    clean_value = prop_value.replace('"', '\\"').replace('\n', ' ')[:500]
                     rdf_lines.append(f'    ste:{prop_key} "{clean_value}" .')
             
             rdf_lines.append("")
         
-        # Add relations
         for relation in relations:
-            rdf_lines.append(f"{relation.subject} {relation.predicate} {relation.object} .")
+            safe_subject = relation.subject.replace(' ', '_').replace(':', '_')
+            safe_object = relation.object.replace(' ', '_').replace(':', '_')
+            safe_predicate = relation.predicate.replace(' ', '_').replace(':', '_')
+            rdf_lines.append(f"ste:{safe_subject} ste:{safe_predicate} ste:{safe_object} .")
             
         return "\n".join(rdf_lines)
 
@@ -789,6 +924,8 @@ class MedeaKGExtractor:
             return self.network_builder.build_network(entities, relations)
         except Exception as e:
             logger.warning(f"Network building failed: {e}, creating basic network")
+            import traceback
+            logger.warning(traceback.format_exc())
             return self._create_basic_network(entities, relations)
 
     def _create_basic_network(self, entities: List[Entity], relations: List[Relation]) -> SemanticNetwork:
@@ -834,7 +971,9 @@ class MedeaKGExtractor:
             'node_count': node_count,
             'edge_count': edge_count,
             'density': density,
-            'most_connected': []
+            'most_connected': [],
+            'relation_distribution': {},
+            'cluster_count': len(clusters)
         }
         
         return SemanticNetwork(
@@ -919,7 +1058,12 @@ class MedeaKGExtractor:
             'ExperientialAffect': '#e74c3c',
             'AppraisedAffect': '#f39c12',
             'IdentityAffect': '#8e44ad',
-            'Entity': '#95a5a6'
+            'Entity': '#95a5a6',
+            'Person': '#3498db',
+            'Place': '#2ecc71',
+            'Event': '#f39c12',
+            'Organization': '#9b59b6',
+            'Concept': '#e67e22'
         }
         clean_type = entity_type.split(':')[-1]
         return color_map.get(clean_type, '#95a5a6')
@@ -972,9 +1116,8 @@ class MedeaKGExtractor:
     def _create_spatial_emotion_visualization(self, semantic_network: SemanticNetwork) -> Dict[str, Any]:
         """Create visualization data optimized for spatial-emotional networks"""
         if not semantic_network:
-            return {'network': {'nodes': [], 'links': []}}
+            return {'network': {'nodes': [], 'links': []}, 'statistics': {}}
         
-        # Enhanced node styling for emotion-place analysis
         for node in semantic_network.nodes:
             if node.get('type') in ['ExperientialAffect', 'AppraisedAffect', 'IdentityAffect']:
                 node['shape'] = 'diamond'
@@ -984,14 +1127,13 @@ class MedeaKGExtractor:
                     node['color'] = '#f39c12'
                 else:
                     node['color'] = '#8e44ad'
-            elif node.get('type') in ['LOC', 'GPE']:
+            elif node.get('type') in ['LOC', 'GPE', 'Place', 'Location']:
                 node['shape'] = 'square'
                 node['color'] = '#27ae60'
-            elif node.get('type') in ['PER', 'NORP']:
+            elif node.get('type') in ['PER', 'NORP', 'Person']:
                 node['shape'] = 'circle'
                 node['color'] = '#3498db'
         
-        # Enhanced edge styling for relation types
         for edge in semantic_network.edges:
             if edge.get('label') in ['experienced_by', 'triggered_by', 'expressed_via']:
                 edge['width'] = 3
@@ -1015,10 +1157,13 @@ class MedeaKGExtractor:
             },
             'spatial_clusters': semantic_network.clusters,
             'statistics': {
-                'total_places': len([n for n in semantic_network.nodes if n.get('type') in ['LOC', 'GPE']]),
+                'total_places': len([n for n in semantic_network.nodes if n.get('type') in ['LOC', 'GPE', 'Place', 'Location']]),
                 'total_emotions': len([n for n in semantic_network.nodes if 'Affect' in n.get('type', '')]),
-                'total_people': len([n for n in semantic_network.nodes if n.get('type') in ['PER', 'NORP']]),
-                'emotion_place_connections': len([e for e in semantic_network.edges if e.get('label') == 'triggered_by'])
+                'total_people': len([n for n in semantic_network.nodes if n.get('type') in ['PER', 'NORP', 'Person']]),
+                'emotion_place_connections': len([e for e in semantic_network.edges if e.get('label') == 'triggered_by']),
+                'node_count': len(semantic_network.nodes),
+                'edge_count': len(semantic_network.edges),
+                'density': semantic_network.metrics.get('density', 0)
             }
         }
     
@@ -1035,12 +1180,10 @@ class MedeaKGExtractor:
     
     def get_status(self) -> Dict[str, Any]:
         """Get extractor status"""
-        # Check if coherence analyzer is available
         coherence_available = False
         coherence_error = None
         try:
             from .coherence_analyzer import NarrativeCoherenceAnalyzer
-            # Try to instantiate to make sure it works
             analyzer = NarrativeCoherenceAnalyzer()
             coherence_available = True
         except ImportError as e:
@@ -1048,7 +1191,6 @@ class MedeaKGExtractor:
         except Exception as e:
             coherence_error = f"Initialization error: {e}"
         
-        # Build feature list dynamically
         features = [
             "Enhanced spatial-emotional extraction",
             "Three-tiered affect hierarchy (Experiential/Appraised/Identity)",
@@ -1056,7 +1198,8 @@ class MedeaKGExtractor:
             "Dialogue and character interaction mapping",
             "Plot causation networks",
             "Robust JSON parsing with fallbacks",
-            "Semantic network visualization"
+            "Semantic network visualization",
+            "Multi-strategy extraction with recitation avoidance"
         ]
         
         if coherence_available:
@@ -1082,6 +1225,7 @@ class MedeaKGExtractor:
             },
             "message": "Enhanced Knowledge Graph Extractor ready with spatial-emotional analysis" if model else "Gemini API key not configured"
         }
+    
     def analyze_narrative_coherence(self, result: KGExtractionResult) -> Dict[str, Any]:
         """Run post-hoc narrative coherence analysis"""
         try:
@@ -1100,39 +1244,12 @@ class MedeaKGExtractor:
         except Exception as e:
             logger.error(f"Coherence analysis failed: {e}")
             return {'error': str(e)}
-    def _extract_response_text(self, response) -> str:
-        """Extract text from Gemini response, handling complex structures"""
-        try:
-            # Try simple text accessor first
-            return response.text
-        except ValueError:
-            # Handle complex response structure
-            try:
-                if hasattr(response, 'candidates') and response.candidates:
-                    candidate = response.candidates[0]
-                    if hasattr(candidate, 'content') and candidate.content:
-                        if hasattr(candidate.content, 'parts') and candidate.content.parts:
-                            # Extract text from all parts
-                            text_parts = []
-                            for part in candidate.content.parts:
-                                if hasattr(part, 'text') and part.text:
-                                    text_parts.append(part.text)
-                            return ' '.join(text_parts)
-                
-                logger.error("Could not extract text from response structure")
-                return ""
-                
-            except Exception as e:
-                logger.error(f"Error extracting response text: {e}")
-                return ""
 
-# Utility functions (outside the class)
 def export_to_csv(result: KGExtractionResult) -> Tuple[str, str]:
     """Export entities and relations to CSV format"""
     import csv
     from io import StringIO
     
-    # Export entities
     entities_csv = StringIO()
     entities_writer = csv.writer(entities_csv)
     entities_writer.writerow(['ID', 'Label', 'Type', 'Confidence', 'Properties'])
@@ -1143,7 +1260,6 @@ def export_to_csv(result: KGExtractionResult) -> Tuple[str, str]:
             json.dumps(entity.properties)
         ])
     
-    # Export relations
     relations_csv = StringIO()
     relations_writer = csv.writer(relations_csv)
     relations_writer.writerow(['Subject', 'Predicate', 'Object', 'Confidence'])
@@ -1211,7 +1327,6 @@ def create_network_report(result: KGExtractionResult) -> str:
     report.append("=" * 60)
     report.append("")
     
-    # Summary statistics
     report.append("SUMMARY STATISTICS")
     report.append("-" * 20)
     report.append(f"Total Entities: {result.entity_count}")
@@ -1221,7 +1336,6 @@ def create_network_report(result: KGExtractionResult) -> str:
     report.append(f"Processing Time: {result.processing_time:.2f} seconds")
     report.append("")
     
-    # Spatial-emotional analysis
     if result.summary.get('spatial_emotional_mappings'):
         report.append("SPATIAL-EMOTIONAL ANALYSIS")
         report.append("-" * 28)
@@ -1233,7 +1347,6 @@ def create_network_report(result: KGExtractionResult) -> str:
                 report.append(f"  {emotion_type}: {count}")
         report.append("")
     
-    # Entity distribution
     if result.summary.get('entity_type_distribution'):
         report.append("ENTITY TYPE DISTRIBUTION")
         report.append("-" * 25)
@@ -1241,7 +1354,6 @@ def create_network_report(result: KGExtractionResult) -> str:
             report.append(f"{entity_type}: {count}")
         report.append("")
     
-    # Key entities
     if result.summary.get('key_entities'):
         report.append("MOST CONNECTED ENTITIES")
         report.append("-" * 25)
@@ -1249,7 +1361,6 @@ def create_network_report(result: KGExtractionResult) -> str:
             report.append(f"{entity['label']} ({entity['connections']} connections)")
         report.append("")
     
-    # Clusters
     if result.semantic_network.clusters:
         report.append("ENTITY CLUSTERS")
         report.append("-" * 15)
@@ -1257,7 +1368,6 @@ def create_network_report(result: KGExtractionResult) -> str:
             report.append(f"{cluster_type}: {len(entities)} entities")
         report.append("")
     
-    # Relation distribution
     if result.summary.get('relation_type_distribution'):
         report.append("RELATION TYPE DISTRIBUTION")
         report.append("-" * 27)
@@ -1265,24 +1375,21 @@ def create_network_report(result: KGExtractionResult) -> str:
             report.append(f"{relation_type}: {count}")
         report.append("")
     
-    # NEW: Coherence Analysis Section
     if result.coherence_analysis and 'error' not in result.coherence_analysis:
         report.append("NARRATIVE COHERENCE ANALYSIS")
         report.append("-" * 30)
         report.append(f"Overall Coherence Score: {result.coherence_analysis.get('overall_coherence_score', 0):.3f}")
         report.append(f"Contradictions Found: {len(result.coherence_analysis.get('contradictions', []))}")
         
-        # Show contradictions
         contradictions = result.coherence_analysis.get('contradictions', [])
         if contradictions:
             report.append("\nDetected Contradictions:")
-            for i, contradiction in enumerate(contradictions[:5], 1):  # Show first 5
+            for i, contradiction in enumerate(contradictions[:5], 1):
                 report.append(f"  {i}. {contradiction['type'].replace('_', ' ').title()}")
                 report.append(f"     {contradiction['description']}")
                 if 'conflicting_objects' in contradiction:
                     report.append(f"     Conflicting entities: {', '.join(contradiction['conflicting_objects'])}")
         
-        # Show narrative flow analysis
         narrative = result.coherence_analysis.get('narrative_coherence', {})
         if narrative:
             report.append(f"\nNarrative Flow Analysis:")
@@ -1292,7 +1399,6 @@ def create_network_report(result: KGExtractionResult) -> str:
             report.append(f"  Dialogue Interactions: {narrative.get('dialogue_interactions', 0)}")
             report.append(f"  Unique Speakers: {narrative.get('unique_speakers', 0)}")
         
-        # Show consistency scores
         consistency = result.coherence_analysis.get('consistency_scores', {})
         if consistency:
             report.append(f"\nConsistency Scores:")
@@ -1306,7 +1412,6 @@ def create_network_report(result: KGExtractionResult) -> str:
         report.append(f"Error: {result.coherence_analysis['error']}")
         report.append("")
     
-    # Extraction notes
     report.append("EXTRACTION NOTES")
     report.append("-" * 16)
     report.append(result.extraction_notes)
