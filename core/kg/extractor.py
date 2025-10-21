@@ -17,14 +17,21 @@ import requests
 import time
 from collections import defaultdict
 import aiohttp
+import google.generativeai as genai
 from dotenv import load_dotenv
 
 load_dotenv()
 
+GEMINI_API_KEY = os.getenv("MEDEA_GEMINI_API_KEY") 
 logger = logging.getLogger("MEDEA.KGExtractor")
 
-# ✅ USE SHARED LLM SERVICE (same as Necromancer)
-from services.llm_service import llm_service
+# Configure Gemini
+GEMINI_API_KEY = os.getenv("MEDEA_GEMINI_API_KEY")
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
+    model = genai.GenerativeModel('gemini-2.5-flash')
+else:
+    model = None
 
 from enum import Enum
 
@@ -72,30 +79,29 @@ class DynamicKGExtractor:
         
         return f"""Extract entities and relationships from this text. Return ONLY valid JSON.
 
-TEXT: {text}
+    TEXT: {text}
 
-DOMAIN GUIDANCE: {guidance[domain]}
-MODE: {mode_instructions.get(mode, mode_instructions["BASIC"])}
+    DOMAIN GUIDANCE: {guidance[domain]}
+    MODE: {mode_instructions.get(mode, mode_instructions["BASIC"])}
 
-INSTRUCTIONS:
-1. Use EXACT SAME IDs in relations as in entities list
-2. Create entity types that fit the content (Person, Place, Event, Concept, Organization, etc.)
-3. Use relationship names that describe actual connections in the text
-4. Extract only what actually exists in the text
+    INSTRUCTIONS:
+    1. Use EXACT SAME IDs in relations as in entities list
+    2. Create entity types that fit the content (Person, Place, Event, Concept, Organization, etc.)
+    3. Use relationship names that describe actual connections in the text
+    4. Extract only what actually exists in the text
 
-Return this JSON format:
-{{
-    "entities": [
-        {{"id": "descriptive_id", "label": "Entity Name", "type": "EntityType", "properties": {{}}}},
-        {{"id": "another_id", "label": "Another Entity", "type": "AnotherType", "properties": {{}}}}
-    ],
-    "relations": [
-        {{"subject": "descriptive_id", "predicate": "relationship_type", "object": "another_id", "description": "brief description"}}
-    ]
-}}
+    Return this JSON format:
+    {{
+        "entities": [
+            {{"id": "descriptive_id", "label": "Entity Name", "type": "EntityType", "properties": {{}}}},
+            {{"id": "another_id", "label": "Another Entity", "type": "AnotherType", "properties": {{}}}}
+        ],
+        "relations": [
+            {{"subject": "descriptive_id", "predicate": "relationship_type", "object": "another_id", "description": "brief description"}}
+        ]
+    }}
 
 JSON only, no explanations."""
-
 class KGExtractionMode(str, Enum):
     """Knowledge graph extraction modes"""
     BASIC = "basic"
@@ -143,7 +149,7 @@ class KGExtractionRequest:
     mode: KGExtractionMode
     use_external_sources: bool = False
     output_format: KGOutputFormat = KGOutputFormat.TURTLE
-    chunk_size: int = 15000  # ✅ DEFAULT: Split text after 15,000 characters
+    chunk_size: int = 15000
     extract_locations: bool = True
     extract_temporal: bool = True
     extract_entities: bool = True
@@ -168,7 +174,7 @@ class KGExtractionResult:
     semantic_network: Optional[SemanticNetwork] = None
     summary: Dict[str, Any] = field(default_factory=dict)
     visualization_data: Dict[str, Any] = field(default_factory=dict)
-    coherence_analysis: Optional[Dict[str, Any]] = None
+    coherence_analysis: Optional[Dict[str, Any]] = None  # ADD THIS LINE
 
 class ExternalKnowledgeEnricher:
     def __init__(self):
@@ -227,7 +233,6 @@ class ExternalKnowledgeEnricher:
         except Exception as e:
             logger.warning(f"External enrichment failed for {entity_label}: {e}")
             return {}
-
 class SemanticNetworkBuilder:
     """Build semantic network from entities and relations"""
     
@@ -314,8 +319,7 @@ class SemanticNetworkBuilder:
             edges=edges,
             clusters=clusters,
             metrics=metrics
-        )
-    
+    )
     def _calculate_node_size(self, entity: Entity, relations: List[Relation]) -> int:
         """Calculate node size based on connectivity"""
         connections = sum(1 for r in relations if r.subject == entity.id or r.object == entity.id)
@@ -417,17 +421,7 @@ class TextChunker:
     """Handle text chunking for large documents"""
     
     def chunk_text_by_sentences(self, text: str, max_chars: int = 15000) -> List[str]:
-        """
-        Chunk text by sentences to maintain coherence
-        
-        ✅ CHUNKING EXPLANATION:
-        - Default max_chars = 15,000 characters per chunk
-        - This is NOT the same as tokens (tokens ≈ chars/4)
-        - 15,000 chars ≈ 3,750 tokens
-        - Gemini models support up to 1M tokens input
-        - We chunk to keep prompts manageable and responses coherent
-        - You can change max_chars in KGExtractionRequest.chunk_size
-        """
+        """Chunk text by sentences to maintain coherence"""
         sentences = re.split(r'[.!?]+', text)
         chunks = []
         current_chunk = ""
@@ -449,7 +443,6 @@ class TextChunker:
             chunks.append(current_chunk.strip())
         
         return chunks
-
 class MedeaKGExtractor:
     """
     MEDEA-NEUMOUSA Knowledge Graph Extractor
@@ -461,21 +454,13 @@ class MedeaKGExtractor:
         self.network_builder = SemanticNetworkBuilder()
         self.dynamic_extractor = DynamicKGExtractor()
         self.external_enricher = ExternalKnowledgeEnricher()
-    
     def create_json_extraction_prompt(self, text: str, request: KGExtractionRequest) -> str:
         """Dynamic prompt that adapts to any text domain with mode support"""
         return self.dynamic_extractor.create_dynamic_prompt(text, request.mode.value)
-    
     async def extract_knowledge_graph(self, request: KGExtractionRequest) -> KGExtractionResult:
         """Extract knowledge graph using enhanced spatial-emotional approach"""
-        
-        # ✅ CHECK LLM SERVICE
-        if not llm_service.api_key:
+        if not model:
             raise Exception("Gemini API key not configured")
-        
-        # Initialize LLM service if needed
-        if not llm_service._initialized:
-            await llm_service.initialize()
         
         start_time = time.time()
         
@@ -488,14 +473,12 @@ class MedeaKGExtractor:
     async def _extract_with_json_approach(self, request: KGExtractionRequest, start_time: float) -> KGExtractionResult:
         """Extract using enhanced JSON-based prompting with better error handling"""
         
-        # ✅ CHUNKING HAPPENS HERE
-        # If text longer than chunk_size (default 15,000 chars), split it
+        # Handle text chunking for large inputs
         if len(request.text) > request.chunk_size:
             chunks = self.chunker.chunk_text_by_sentences(request.text, request.chunk_size)
-            logger.info(f"📝 Processing {len(chunks)} chunks (chunk_size={request.chunk_size} chars)")
+            logger.info(f"Processing {len(chunks)} chunks")
         else:
             chunks = [request.text]
-            logger.info(f"📝 Processing single text ({len(request.text)} chars)")
         
         all_entities = []
         all_relations = []
@@ -509,26 +492,29 @@ class MedeaKGExtractor:
             prompt = self.create_json_extraction_prompt(chunk, request)
             
             try:
-                # ✅ USE SHARED LLM SERVICE (with automatic model fallback)
-                response_text = await llm_service.generate_completion(
-                    prompt=prompt,
-                    temperature=0.2,
-                    max_tokens=4000  # ✅ MAX OUTPUT TOKENS (not input)
+                # Call Gemini API
+                response = await model.generate_content_async(
+                    prompt,
+                    generation_config=genai.types.GenerationConfig(
+                        temperature=0.2,
+                        max_output_tokens=4000
+                    )
                 )
                 
                 # Parse JSON response with enhanced error handling
-                json_data = self._parse_json_response(response_text)
+                json_data = self._parse_json_response(response.text)
                 
                 if json_data:
                     # Enhance with additional pattern-based extraction
                     json_data = self._enhance_spatial_emotional_analysis(json_data, chunk)
                     
+                    # Add external enrichment for EXTERNAL_ENRICHED mode
+                  
                     # Collect data from this chunk
                     all_entities.extend(json_data.get('entities', []))
                     all_relations.extend(json_data.get('relations', []))
                     all_spatial_emotions.extend(json_data.get('spatial_emotions', []))
                     all_rhetorical_analysis.extend(json_data.get('rhetorical_analysis', []))
-                    
             except Exception as e:
                 logger.error(f"Error processing chunk {i}: {e}")
                 continue
@@ -536,11 +522,8 @@ class MedeaKGExtractor:
         # Convert to internal format
         entities = self._convert_json_to_entities(all_entities)
         relations = self._convert_json_to_relations(all_relations)
-        
-        # External enrichment if requested
         if request.mode == KGExtractionMode.EXTERNAL_ENRICHED:
             entities = await self._enrich_entities_external(entities)
-        
         # Create RDF content from structured data
         rdf_content = self._create_rdf_from_structured_data(entities, relations)
         
@@ -577,12 +560,11 @@ class MedeaKGExtractor:
         )
         
         # ADD COHERENCE ANALYSIS
-        if request.mode != KGExtractionMode.BASIC:
+        if request.mode != KGExtractionMode.BASIC:  # Only for advanced modes
             logger.info("Running narrative coherence analysis...")
             result.coherence_analysis = self.analyze_narrative_coherence(result)
         
         return result
-    
     async def _enrich_entities_external(self, entities: List[Entity]) -> List[Entity]:
         """Enrich Entity objects with external data"""
         enriched_count = 0
@@ -606,7 +588,6 @@ class MedeaKGExtractor:
         
         logger.info(f"External enrichment complete: {enriched_count}/{len(entities)} entities enriched")
         return entities
-    
     def _parse_json_response(self, response) -> Optional[Dict[str, Any]]:
         """Parse JSON response from Gemini with robust error handling"""
         try:
@@ -637,13 +618,13 @@ class MedeaKGExtractor:
         except Exception as e:
             logger.error(f"Response parsing failed: {e}")
             return None
-    
     def _fix_json_issues(self, json_text: str) -> str:
         """Fix common JSON formatting issues"""
         # Remove trailing commas before closing brackets/braces
         json_text = re.sub(r',(\s*[}\]])', r'\1', json_text)
         
         # Fix unescaped quotes inside string values
+        # This is a simple approach - replace any \" with \"
         json_text = json_text.replace('\\"', '"')
         
         # Remove any stray quotes that might break parsing
@@ -1059,6 +1040,7 @@ class MedeaKGExtractor:
         coherence_error = None
         try:
             from .coherence_analyzer import NarrativeCoherenceAnalyzer
+            # Try to instantiate to make sure it works
             analyzer = NarrativeCoherenceAnalyzer()
             coherence_available = True
         except ImportError as e:
@@ -1066,9 +1048,7 @@ class MedeaKGExtractor:
         except Exception as e:
             coherence_error = f"Initialization error: {e}"
         
-        # ✅ GET LLM SERVICE STATUS
-        llm_status = llm_service.get_status()
-        
+        # Build feature list dynamically
         features = [
             "Enhanced spatial-emotional extraction",
             "Three-tiered affect hierarchy (Experiential/Appraised/Identity)",
@@ -1076,8 +1056,7 @@ class MedeaKGExtractor:
             "Dialogue and character interaction mapping",
             "Plot causation networks",
             "Robust JSON parsing with fallbacks",
-            "Semantic network visualization",
-            f"Multi-model fallback system ({llm_status['total_models']} models available)"
+            "Semantic network visualization"
         ]
         
         if coherence_available:
@@ -1086,43 +1065,23 @@ class MedeaKGExtractor:
             features.append(f"Narrative coherence analysis (unavailable: {coherence_error})")
         
         return {
-            "api_configured": llm_status["api_configured"],
-            "model_ready": llm_status["initialized"],
-            "available_models": llm_status["available_models"],
-            "primary_model": llm_status["primary_model"],
-            "fallback_chain": llm_status.get("fallback_chain", []),
+            "api_configured": GEMINI_API_KEY is not None,
+            "model_ready": model is not None,
             "coherence_analyzer_available": coherence_available,
             "coherence_analyzer_error": coherence_error,
             "supported_modes": [mode.value for mode in KGExtractionMode],
             "supported_formats": [fmt.value for fmt in KGOutputFormat],
             "features": features,
-            "chunking_info": {
-                "default_chunk_size": 15000,
-                "unit": "characters",
-                "approximate_tokens": "~3,750 tokens per chunk",
-                "configurable": True,
-                "max_recommended": 50000
-            },
-            "token_limits": {
-                "input_per_chunk": "~3,750 tokens (15k chars)",
-                "output_per_chunk": 4000,
-                "gemini_model_max": "1M tokens (gemini-2.x models)",
-                "note": "Chunking keeps prompts manageable and responses coherent"
-            },
             "analysis_capabilities": {
                 "spatial_emotional_extraction": True,
                 "contradiction_detection": coherence_available,
                 "narrative_flow_analysis": coherence_available,
                 "emotional_triangulation": True,
                 "causal_chain_detection": coherence_available,
-                "dialogue_pattern_analysis": coherence_available,
-                "multi_model_fallback": True,
-                "automatic_quota_handling": True
+                "dialogue_pattern_analysis": coherence_available
             },
-            "llm_service": llm_status,
-            "message": "Enhanced Knowledge Graph Extractor with multi-model fallback system" if llm_status["initialized"] else "Gemini API key not configured"
+            "message": "Enhanced Knowledge Graph Extractor ready with spatial-emotional analysis" if model else "Gemini API key not configured"
         }
-    
     def analyze_narrative_coherence(self, result: KGExtractionResult) -> Dict[str, Any]:
         """Run post-hoc narrative coherence analysis"""
         try:
@@ -1141,17 +1100,19 @@ class MedeaKGExtractor:
         except Exception as e:
             logger.error(f"Coherence analysis failed: {e}")
             return {'error': str(e)}
-    
     def _extract_response_text(self, response) -> str:
         """Extract text from Gemini response, handling complex structures"""
         try:
+            # Try simple text accessor first
             return response.text
         except ValueError:
+            # Handle complex response structure
             try:
                 if hasattr(response, 'candidates') and response.candidates:
                     candidate = response.candidates[0]
                     if hasattr(candidate, 'content') and candidate.content:
                         if hasattr(candidate.content, 'parts') and candidate.content.parts:
+                            # Extract text from all parts
                             text_parts = []
                             for part in candidate.content.parts:
                                 if hasattr(part, 'text') and part.text:
@@ -1258,7 +1219,6 @@ def create_network_report(result: KGExtractionResult) -> str:
     report.append(f"Network Density: {result.semantic_network.metrics.get('density', 0):.3f}")
     report.append(f"Cluster Count: {result.semantic_network.metrics.get('cluster_count', 0)}")
     report.append(f"Processing Time: {result.processing_time:.2f} seconds")
-    report.append(f"Chunks Processed: {result.chunks_processed}")
     report.append("")
     
     # Spatial-emotional analysis
@@ -1305,7 +1265,7 @@ def create_network_report(result: KGExtractionResult) -> str:
             report.append(f"{relation_type}: {count}")
         report.append("")
     
-    # Coherence Analysis Section
+    # NEW: Coherence Analysis Section
     if result.coherence_analysis and 'error' not in result.coherence_analysis:
         report.append("NARRATIVE COHERENCE ANALYSIS")
         report.append("-" * 30)
@@ -1316,7 +1276,7 @@ def create_network_report(result: KGExtractionResult) -> str:
         contradictions = result.coherence_analysis.get('contradictions', [])
         if contradictions:
             report.append("\nDetected Contradictions:")
-            for i, contradiction in enumerate(contradictions[:5], 1):
+            for i, contradiction in enumerate(contradictions[:5], 1):  # Show first 5
                 report.append(f"  {i}. {contradiction['type'].replace('_', ' ').title()}")
                 report.append(f"     {contradiction['description']}")
                 if 'conflicting_objects' in contradiction:
