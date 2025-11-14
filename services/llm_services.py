@@ -24,10 +24,12 @@ class LLMService:
         
         # Model fallback chain (best to worst)
         self.model_names = [
-            'gemini-2.0-flash-exp',      # Primary: Latest experimental
-            'gemini-1.5-pro',            # Fallback 1: Reliable pro
-            'gemini-1.5-flash',          # Fallback 2: Fast flash
-            'gemini-1.0-pro'             # Fallback 3: Stable legacy
+            "gemini-2.5-flash-lite",
+            "gemini-2.0-flash-lite",
+            "gemini-2.5-flash",
+            "gemini-2.5-pro",
+            "gemini-2.0-flash",
+            "gemini-2.0-flash-001",
         ]
     
     async def initialize(self) -> None:

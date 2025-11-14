@@ -18,13 +18,29 @@ load_dotenv()
 
 logger = logging.getLogger("MEDEA.EmotionKG")
 
-# Configure Gemini
+# Configure Gemini with fallback
 GEMINI_API_KEY = os.getenv("MEDEA_GEMINI_API_KEY")
+
+MODEL_NAMES = [
+    "gemini-2.5-flash-lite",
+    "gemini-2.0-flash-lite",
+    "gemini-2.5-flash",
+    "gemini-2.5-pro",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-001",
+]
+
+models = []
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-2.5-pro')
-else:
-    model = None
+    for model_name in MODEL_NAMES:
+        try:
+            m = genai.GenerativeModel(model_name)
+            models.append((model_name, m))
+        except:
+            pass
+
+model = models[0][1] if models else None
 
 @dataclass
 class EmotionEntity:
@@ -156,50 +172,69 @@ sentiment_score: -1.0 to 1.0 (separate from intensity - affects color only)
 Return ONLY JSON, no markdown, no explanations"""
 
     async def extract_emotion_graph(self, text: str) -> EmotionGraph:
-        """Extract emotion knowledge graph from text using LLM"""
-        if not model:
-            logger.warning("Gemini model not available, using fallback")
+        """Extract emotion knowledge graph from text using LLM with fallback"""
+        if not models:
+            logger.warning("No Gemini models available, using fallback")
             return await self._fallback_extraction(text)
         
-        try:
-            # Create extraction prompt
-            prompt = self.create_emotion_extraction_prompt(text)
-            
-            # Call Gemini API
-            response = await model.generate_content_async(
-                prompt,
-                generation_config=genai.types.GenerationConfig(
-                    temperature=0.1,
-                    max_output_tokens=4000
+        # Create extraction prompt once
+        prompt = self.create_emotion_extraction_prompt(text)
+        
+        # Try each model in fallback chain
+        for model_name, current_model in models:
+            try:
+                logger.debug(f"Trying emotion extraction with {model_name}")
+                
+                # Call Gemini API
+                response = await current_model.generate_content_async(
+                    prompt,
+                    generation_config=genai.types.GenerationConfig(
+                        temperature=0.1,
+                        max_output_tokens=4000
+                    )
                 )
-            )
-            
-            # Parse JSON response
-            json_data = self._parse_json_response(response.text)
-            
-            if not json_data:
-                logger.warning("Failed to parse LLM response, using fallback")
-                return await self._fallback_extraction(text)
-            
-            # Convert to internal format
-            emotions = self._convert_to_emotion_entities(json_data.get('emotions', []))
-            relations = self._convert_to_emotion_relations(json_data.get('relations', []))
-            
-            # Create visualization data
-            visualization_data = self._create_visualization_data(emotions, relations)
-            
-            return EmotionGraph(
-                entities=emotions,
-                relations=relations,
-                overall_sentiment=json_data.get('overall_sentiment', 0.0),
-                dominant_emotions=json_data.get('dominant_emotions', []),
-                sentiment_distribution=json_data.get('sentiment_distribution', {}),
-                visualization_data=visualization_data
-            )
-            
-        except Exception as e:
-            logger.error(f"Emotion extraction failed: {e}")
-            return await self._fallback_extraction(text)
+                
+                # Parse JSON response
+                json_data = self._parse_json_response(response.text)
+                
+                if not json_data:
+                    logger.warning(f"Failed to parse response from {model_name}, trying next model")
+                    continue
+                
+                # Convert to internal format
+                emotions = self._convert_to_emotion_entities(json_data.get('emotions', []))
+                relations = self._convert_to_emotion_relations(json_data.get('relations', []))
+                
+                # Create visualization data
+                visualization_data = self._create_visualization_data(emotions, relations)
+                
+                logger.info(f"✅ Emotion extraction succeeded with {model_name}")
+                return EmotionGraph(
+                    entities=emotions,
+                    relations=relations,
+                    overall_sentiment=json_data.get('overall_sentiment', 0.0),
+                    dominant_emotions=json_data.get('dominant_emotions', []),
+                    sentiment_distribution=json_data.get('sentiment_distribution', {}),
+                    visualization_data=visualization_data
+                )
+                
+            except Exception as e:
+                error_str = str(e).lower()
+                
+                # If 429/quota error, try next model immediately
+                if "429" in error_str or "quota" in error_str or "rate limit" in error_str:
+                    logger.warning(f"💀 {model_name} quota exceeded, trying next model...")
+                    continue
+                elif "504" in error_str or "timeout" in error_str:
+                    logger.warning(f"⏱️ {model_name} timeout, trying next model...")
+                    continue
+                else:
+                    logger.error(f"❌ {model_name} error: {e}, trying next model...")
+                    continue
+        
+        # All models failed, use fallback
+        logger.error("All models failed, using fallback extraction")
+        return await self._fallback_extraction(text)
 
     def _parse_json_response(self, response_text: str) -> Optional[Dict[str, Any]]:
         """Parse JSON response from Gemini with error handling"""

@@ -20,13 +20,29 @@ load_dotenv()
 
 logger = logging.getLogger("MEDEA.Semantic")
 
-# Configure Gemini - SAME AS NECROMANCER
+# Configure Gemini with fallback
 GEMINI_API_KEY = os.getenv("MEDEA_GEMINI_API_KEY")
+
+MODEL_NAMES = [
+    "gemini-2.5-flash-lite",
+    "gemini-2.0-flash-lite",
+    "gemini-2.5-flash",
+    "gemini-2.5-pro",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-001",
+]
+
+models = []
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-2.5-pro')
-else:
-    model = None
+    for model_name in MODEL_NAMES:
+        try:
+            m = genai.GenerativeModel(model_name)
+            models.append((model_name, m))
+        except:
+            pass
+
+model = models[0][1] if models else None
 
 @dataclass
 class TextSimilarity:
@@ -86,15 +102,15 @@ class SemanticAnalyzer:
         language1: str = "lat", 
         language2: str = "lat"
     ) -> TextSimilarity:
-        """Analyze semantic similarity between two ancient texts"""
+        """Analyze semantic similarity between two ancient texts with fallback"""
         
-        if not model:
-            logger.error("Gemini API key not configured for semantic analysis")
+        if not models:
+            logger.error("No Gemini models available")
             return TextSimilarity(
                 text1=text1,
                 text2=text2,
                 similarity_score=0.0,
-                semantic_connections=["Gemini API key not configured"],
+                semantic_connections=["No models available"],
                 shared_themes=["Configuration error"],
                 linguistic_relationship="configuration_error"
             )
@@ -118,39 +134,49 @@ Valid linguistic_relationship values: direct_quotation, allusion, parallel_tradi
 
 Only return the JSON object, nothing else."""
 
-        try:
-            # EXACT SAME PATTERN AS NECROMANCER
-            response = await model.generate_content_async(
-                prompt,
-                generation_config=genai.types.GenerationConfig(
-                    temperature=0.3,
-                    max_output_tokens=1000
+        # Try each model in fallback chain
+        for model_name, current_model in models:
+            try:
+                response = await current_model.generate_content_async(
+                    prompt,
+                    generation_config=genai.types.GenerationConfig(
+                        temperature=0.3,
+                        max_output_tokens=1000
+                    )
                 )
-            )
-            
-            # Parse JSON with error handling
-            result = parse_llm_json_response(response.text)
-            
-            return TextSimilarity(
-                text1=text1,
-                text2=text2,
-                similarity_score=float(result.get("similarity_score", 0.5)),
-                semantic_connections=result.get("semantic_connections", []),
-                shared_themes=result.get("shared_themes", []),
-                linguistic_relationship=result.get("linguistic_relationship", "unknown")
-            )
-            
-        except Exception as e:
-            logger.error(f"Similarity analysis failed: {e}")
-            # Simple fallback without assumptions
-            return TextSimilarity(
-                text1=text1,
-                text2=text2,
-                similarity_score=0.0,
-                semantic_connections=["Analysis failed - please try again"],
-                shared_themes=["Analysis unavailable"],
-                linguistic_relationship="analysis_failed"
-            )
+                
+                # Parse JSON with error handling
+                result = parse_llm_json_response(response.text)
+                
+                logger.info(f"✅ Similarity analysis succeeded with {model_name}")
+                return TextSimilarity(
+                    text1=text1,
+                    text2=text2,
+                    similarity_score=float(result.get("similarity_score", 0.5)),
+                    semantic_connections=result.get("semantic_connections", []),
+                    shared_themes=result.get("shared_themes", []),
+                    linguistic_relationship=result.get("linguistic_relationship", "unknown")
+                )
+                
+            except Exception as e:
+                error_str = str(e).lower()
+                if "429" in error_str or "quota" in error_str or "rate limit" in error_str:
+                    logger.warning(f"💀 {model_name} quota exceeded, trying next model...")
+                    continue
+                else:
+                    logger.error(f"❌ {model_name} error: {e}, trying next model...")
+                    continue
+        
+        # All models failed
+        logger.error("All models failed for similarity analysis")
+        return TextSimilarity(
+            text1=text1,
+            text2=text2,
+            similarity_score=0.0,
+            semantic_connections=["All models failed"],
+            shared_themes=["Analysis unavailable"],
+            linguistic_relationship="analysis_failed"
+        )
     
     async def analyze_multiple_texts(
         self, 
@@ -236,25 +262,34 @@ Return exactly this JSON format:
     "detailed_summary": "scholarly analysis of what unites these texts"
 }}"""
             
-            try:
-                if not model:
-                    raise Exception("Gemini API not configured")
-                
-                # EXACT SAME PATTERN AS NECROMANCER
-                response = await model.generate_content_async(
-                    theme_prompt,
-                    generation_config=genai.types.GenerationConfig(
-                        temperature=0.3,
-                        max_output_tokens=800
+            # Try each model in fallback chain
+            theme_found = False
+            for model_name, current_model in models:
+                try:
+                    response = await current_model.generate_content_async(
+                        theme_prompt,
+                        generation_config=genai.types.GenerationConfig(
+                            temperature=0.3,
+                            max_output_tokens=800
+                        )
                     )
-                )
-                
-                theme_data = parse_llm_json_response(response.text)
-                cluster_themes[cluster_id] = theme_data.get("main_theme", f"Cluster {cluster_id}")
-                cluster_summaries[cluster_id] = theme_data.get("detailed_summary", "No summary available")
-                
-            except Exception as e:
-                logger.warning(f"Theme analysis failed for cluster {cluster_id}: {e}")
+                    
+                    theme_data = parse_llm_json_response(response.text)
+                    cluster_themes[cluster_id] = theme_data.get("main_theme", f"Cluster {cluster_id}")
+                    cluster_summaries[cluster_id] = theme_data.get("detailed_summary", "No summary available")
+                    theme_found = True
+                    break
+                    
+                except Exception as e:
+                    error_str = str(e).lower()
+                    if "429" in error_str or "quota" in error_str:
+                        logger.debug(f"{model_name} quota exceeded, trying next...")
+                        continue
+                    else:
+                        continue
+            
+            if not theme_found:
+                logger.warning(f"Theme analysis failed for cluster {cluster_id} on all models")
                 # Fallback theme naming
                 if len(cluster_texts) == 1:
                     cluster_themes[cluster_id] = f"Single Text Cluster {cluster_id}"

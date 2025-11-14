@@ -19,12 +19,30 @@ router = APIRouter()
 load_dotenv()
 GEMINI_API_KEY = os.getenv("MEDEA_GEMINI_API_KEY")
 
-# --- Configure Gemini ---
+# --- Configure Gemini with fallback ---
+MODEL_NAMES = [
+    "gemini-2.5-flash-lite",
+    "gemini-2.0-flash-lite",
+    "gemini-2.5-flash",
+    "gemini-2.5-pro",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-001",
+]
+
+models = []
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-2.0-flash-exp')
+    for model_name in MODEL_NAMES:
+        try:
+            m = genai.GenerativeModel(model_name)
+            models.append((model_name, m))
+        except Exception as e:
+            pass
 else:
-    model = None
+    models = []
+
+# Primary model for backwards compatibility
+model = models[0][1] if models else None
 
 # --- Smart Mode Configuration ---
 SIMPLE_MODE_THRESHOLD = 200  # Characters

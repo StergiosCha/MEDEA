@@ -25,19 +25,39 @@ load_dotenv()
 GEMINI_API_KEY = os.getenv("MEDEA_GEMINI_API_KEY") 
 logger = logging.getLogger("MEDEA.KGExtractor")
 
-# Configure Gemini
+# Configure Gemini with fallback models
 GEMINI_API_KEY = os.getenv("MEDEA_GEMINI_API_KEY")
+
+# Model fallback chain
+MODEL_NAMES = [
+    "gemini-2.5-flash-lite",
+    "gemini-2.0-flash-lite",
+    "gemini-2.5-flash",
+    "gemini-2.5-pro",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-001",
+]
+
+models = []
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-    try:
-        model = genai.GenerativeModel('gemini-2.0-flash-exp')
-        logger.info(f"Initialized Gemini model successfully")
-    except Exception as e:
-        logger.error(f"Failed to initialize model: {e}")
-        model = None
+    for model_name in MODEL_NAMES:
+        try:
+            m = genai.GenerativeModel(model_name)
+            models.append((model_name, m))
+            logger.info(f"Loaded model: {model_name}")
+        except Exception as e:
+            logger.warning(f"Failed to load model {model_name}: {e}")
+    
+    if not models:
+        logger.error("No Gemini models could be loaded")
+    else:
+        logger.info(f"Initialized {len(models)} fallback models")
 else:
     logger.warning("GEMINI_API_KEY not found")
-    model = None
+
+# Keep backwards compatibility - primary model
+model = models[0][1] if models else None
 
 from enum import Enum
 
@@ -482,38 +502,55 @@ class MedeaKGExtractor:
             for strategy_name, temperature, prompt in strategies:
                 logger.info(f"Trying strategy: {strategy_name} (temp={temperature})")
                 
-                try:
-                    response = await model.generate_content_async(
-                        prompt,
-                        generation_config=genai.types.GenerationConfig(
-                            temperature=temperature,
-                            max_output_tokens=8192,
-                            top_p=0.95,
-                            top_k=40
-                        ),
-                        safety_settings=[
-                            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-                            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-                            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-                            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
-                        ]
-                    )
-                    
-                    finish_reason = self._get_finish_reason_code(response)
-                    logger.info(f"Strategy {strategy_name}: finish_reason={finish_reason}")
-                    
-                    response_text = self._extract_response_text(response)
-                    
-                    if response_text and len(response_text) > 10:
-                        logger.info(f"Success with strategy: {strategy_name}, got {len(response_text)} chars")
-                        break
-                    else:
-                        logger.warning(f"Strategy {strategy_name} failed, trying next...")
-                        await asyncio.sleep(0.5)
+                # Try each model in fallback chain
+                for model_name, current_model in models:
+                    try:
+                        logger.debug(f"Trying model: {model_name}")
+                        response = await current_model.generate_content_async(
+                            prompt,
+                            generation_config=genai.types.GenerationConfig(
+                                temperature=temperature,
+                                max_output_tokens=8192,
+                                top_p=0.95,
+                                top_k=40
+                            ),
+                            safety_settings={
+                                genai.types.HarmCategory.HARM_CATEGORY_HARASSMENT: genai.types.HarmBlockThreshold.BLOCK_NONE,
+                                genai.types.HarmCategory.HARM_CATEGORY_HATE_SPEECH: genai.types.HarmBlockThreshold.BLOCK_NONE,
+                                genai.types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: genai.types.HarmBlockThreshold.BLOCK_NONE,
+                                genai.types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: genai.types.HarmBlockThreshold.BLOCK_NONE,
+                            }
+                        )
                         
-                except Exception as e:
-                    logger.error(f"Strategy {strategy_name} error: {e}")
-                    continue
+                        finish_reason = self._get_finish_reason_code(response)
+                        logger.info(f"Strategy {strategy_name}, model {model_name}: finish_reason={finish_reason}")
+                        
+                        response_text = self._extract_response_text(response)
+                        
+                        if response_text and len(response_text) > 10:
+                            logger.info(f"✅ Success with {model_name} strategy {strategy_name}, got {len(response_text)} chars")
+                            break
+                        else:
+                            logger.warning(f"Empty response from {model_name}, trying next model...")
+                            continue
+                            
+                    except Exception as e:
+                        error_str = str(e).lower()
+                        
+                        # If 429/quota error, try next model
+                        if "429" in error_str or "quota" in error_str or "rate limit" in error_str:
+                            logger.warning(f"💀 {model_name} quota exceeded, trying next model...")
+                            continue
+                        else:
+                            logger.error(f"Strategy {strategy_name}, model {model_name} error: {e}")
+                            continue
+                
+                # If we got response_text from any model, break strategy loop
+                if response_text and len(response_text) > 10:
+                    break
+                else:
+                    logger.warning(f"Strategy {strategy_name} failed on all models, trying next strategy...")
+                    await asyncio.sleep(0.5)
             
             if not response_text:
                 logger.error(f"All strategies failed for chunk {i}, skipping")
